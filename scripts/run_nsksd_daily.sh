@@ -27,9 +27,14 @@ if [ -f "$SERVER_DIR/.env" ]; then
   set +a
 fi
 
-export LARK_APP_ID="${LARK_APP_ID:-cli_a939b5f909f81cc1}"
-export LARK_APP_SECRET="${LARK_APP_SECRET:-gabdmk0ZZrYWKa8eOGsCjs3Vfo03vg3M}"
-export TARGET_OPEN_ID="${TARGET_OPEN_ID:-ou_01317d9f859b2aeb7e26fe44377d9975}"
+export LARK_APP_ID="${LARK_APP_ID:-}"
+export LARK_APP_SECRET="${LARK_APP_SECRET:-}"
+export TARGET_OPEN_ID="${TARGET_OPEN_ID:-}"
+
+# 凭据检查
+if [ -z "$LARK_APP_ID" ] || [ -z "$LARK_APP_SECRET" ] || [ -z "$TARGET_OPEN_ID" ]; then
+  die "缺少必要的环境变量。请先配置 scripts/server/.env（参考 scripts/server/.env.example）"
+fi
 export SKILL_PATH="$SKILL_DIR"
 
 # ---- 输出文件 ----

@@ -434,227 +434,56 @@ description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill。当用户提
 
 ## 阶段六：公众号排版与发布（`/nsksd 排版 <文案>`）
 
-### 排版系统
+本Skill内置完整的公众号排版系统（31个主题），全部自包含，不依赖外部Skill。
 
-本Skill内置完整的公众号排版系统，支持31个主题风格。排版流程：
-
-1. 文案（Markdown）→ AI结构化预处理（补标题、加粗、分段）→ 套用主题 → 生成微信兼容HTML → 推送草稿箱
-
-### 排版脚本
-
-| 脚本 | 用途 |
-|------|------|
-| `scripts/format/format.py` | Markdown → 微信兼容HTML（内联样式） |
-| `scripts/format/publish.py` | HTML → 公众号草稿箱（API推送） |
-
-### 排版主题（themes/ 目录，31个）
-
-日生研内容推荐使用以下主题：
-
-| 推荐场景 | 主题 | 说明 |
-|----------|------|------|
-| **默认/日常** | `newspaper` | 报纸风，适合行业分析、科普长文 |
-| **品牌故事** | `chinese` | 中国风，红色+楷体，适合企业历程、品牌文化 |
-| **科学信任** | `elegant-navy` | 精致藏青，适合临床数据、专家观点 |
-| **招商转化** | `focus-gold` | 聚焦金，适合商业分析、招商文案 |
-| **健康科普** | `mint-fresh` | 薄荷绿，清新自然，适合健康科普 |
-| **大会报道** | `magazine` | 杂志风，适合活动报道、产品评测 |
-| **紧急/重磅** | `bold-navy` | 醒目藏青，适合重要公告 |
-
-全部31个主题：bauhaus、bold-blue/green/navy、bytedance、chinese、coffee-house、elegant-blue/green/navy、focus-blue/gold/red、github、ink、lavender-dream、magazine、midnight、minimal-blue/gold/gray/navy/red、mint-fresh、newspaper、sports、sspai、sunset-amber、terracotta、v5-sample、wechat-native
-
-### 排版执行流程
-
+**快速用法**：
 ```bash
-# 1. 排版（指定主题，输出到 /tmp/wechat-format/）
-python3 scripts/format/format.py --input article.md --theme newspaper --output /tmp/wechat-format/
-# 输出目录结构：/tmp/wechat-format/{标题}/{文件名}/article.html + images/
+# 排版
+python3 scripts/format/format.py --input article.md --theme newspaper
 
-# 2. 预览（打开 preview.html，带「复制到微信」按钮）
-open /tmp/wechat-format/{标题}/{文件名}/preview.html
-
-# 3. 推送到草稿箱（--dir 指向排版输出目录，需配置公众号API凭据）
-python3 scripts/format/publish.py --dir /tmp/wechat-format/{标题}/{文件名}/ --title "文章标题" --cover images/cover.jpg
-
-# 或者一步到位：--input 直接传 Markdown，自动排版+推送
+# 一步排版+推送草稿箱
 python3 scripts/format/publish.py --input article.md --theme newspaper --title "文章标题"
 ```
 
-publish.py 参数说明：
-| 参数 | 说明 |
-|------|------|
-| `--dir / -d` | format.py 的输出目录（含 article.html 和 images/） |
-| `--input / -i` | Markdown 文件路径（自动调用 format.py 排版后发布） |
-| `--cover / -c` | 封面图片路径（不指定则从 images/ 目录自动选取） |
-| `--title / -t` | 文章标题（默认从 HTML 提取） |
-| `--theme` | 排版主题（仅 --input 模式有效） |
-| `--author / -a` | 作者名（默认从 config.json 读取） |
-| `--dry-run` | 模拟运行，不实际推送 |
+**推荐主题**：科学信任→`mint-fresh`，品牌故事→`coffee-house`，招商转化→`sunset-amber`，默认→`newspaper`
 
-### AI结构化预处理（排版前自动执行）
+**干净草稿铁律**：推送到草稿箱的必须是可直接发布的干净文章。禁止包含评分、AI声明、免责尾注、参考文献。文末健康提醒用自然语气融入正文。
 
-读取文案后检测Markdown结构完整度，如果缺少标题/加粗/列表等格式标记，自动补充：
-
-1. **加标题**：识别逻辑段落转换点，插入 `##` 标题
-2. **分段落**：确保段落间有空行，长段落在语义转换处拆分
-3. **加列表**：识别并列/枚举内容，加列表标记
-4. **加强调**：关键词、产品名、核心概念加 `**加粗**`
-5. **清理格式**：去除多余空行、修正缩进、统一标点
-6. **不改措辞**：只加结构标记，不调语序、不增删内容
+> 详细说明见 [docs/formatting.md](docs/formatting.md)
 
 ---
 
 ## 飞书卡片推送系统
 
-### 每日选题推送流程
+每天10点自动推送两张飞书卡片：
+1. **📋 清单卡**（绿色）：选题概览 + 飞书云文档链接（查看详细构思）
+2. **📝 多选卡**（蓝色）：勾选选题 → 提交 → 自动写稿排版推送草稿箱 → 卡片变灰
 
-每天早上10点，定时脚本自动执行以下流程：
+核心流程：`选题生成 → 飞书云文档 → 清单卡+多选卡 → 用户选择 → Claude写稿 → 排版 → 推送草稿箱`
 
-```
-STEP 1: Claude CLI 生成10个选题（含S/A/B分级、五维评分、合规预检）
-STEP 2: 创建飞书云文档（写入选题详情，设置曲率可访问）
-STEP 3: 启动WSClient长连接监听服务（注册选题到内存）
-STEP 4: 通过监听服务HTTP端口依次发送两张卡片（清单卡 + 多选卡）
-```
+> 详细说明见 [docs/feishu-cards.md](docs/feishu-cards.md)
 
-### 卡片设计（两张卡片）
+---
 
-**第一张：📋 选题清单卡**（绿色，schema 1.0）：
-- 纯展示卡片，按 S/A/B 等级分组列出所有选题概览
-- 每个选题显示：序号、标题（加粗）、内容线、评分、合规标记、一句话摘要
-- 等级之间用 `hr` 分割线
-- 底部一个「📄 查看完整选题方案」按钮（`multi_url` 跳转飞书云文档）
-- 飞书云文档包含每个选题的详细构思：核心角度、目标人群、备选标题、大纲框架等
-- HTTP端点：`POST /send-summary-card`，body可传 `{ "doc_url": "..." }`
+## 定时任务与环境配置
 
-**第二张：📝 多选选题卡**（蓝色，schema 2.0）：
-- 使用 `form` 容器包裹所有交互元素
-- 按 S/A/B 等级分组，每组有加粗 markdown 标题（🏆 S级 / ⭐ A级 / 📌 B级）
-- 每个选题用 `checker` 组件（form 内，不配 behaviors，避免200672错误）
-- checker 的 text 显示两行：第一行 `内容线（分数）合规标记  标题`，第二行 `一句话摘要`
-- 等级之间用 `hr` 分割线
-- 底部一个 `button`（`form_action_type: "submit"`），点击提交整个 form
-- HTTP端点：`POST /send-card`
+- **Mac**：LaunchAgent plist，每天10:00触发
+- **Windows**：Task Scheduler XML，每天10:00触发
+- **首次配置**：运行 `bash scripts/setup.sh`，填入飞书和微信凭据
 
-**⚠️ 关键技术点**：
-- schema 1.0 支持 `action` tag（清单卡用），schema 2.0 不支持（多选卡用 form + checker）
-- 飞书卡片 2.0 的 `checker` 在 `form` 内时，**不能配 behaviors**（否则报 200672 错误）
-- 提交按钮必须设置 `form_action_type: "submit"`，不是普通 button
-- 用户点提交 → 飞书通过 WSClient 长连接推送 `card.action.trigger` 回调
-- 回调的 `action.form_value` 格式：`{ "topic_1": true, "topic_3": true, "topic_5": false, ... }`
-- 回调处理必须在3秒内返回（写稿用 `handleTopicSelection().catch()` 异步处理）
-- 返回值中 `card.type: "raw"` + `card.data: 新卡片JSON` 可以原地更新卡片（按钮变灰）
+> 定时任务详情见 [docs/scheduling.md](docs/scheduling.md)
+> 首次安装指南见 [docs/setup.md](docs/setup.md)
 
-### 多选卡回调 → 写稿 → 排版 → 推送草稿箱
+---
 
-```
-用户在清单卡查看选题详情 → 在多选卡勾选要写的选题 → 点「📝 提交选题，开始创作」
-    ↓
-card.action.trigger 回调 → 解析 form_value 中 value===true 的 checker
-    ↓
-返回 toast "已提交X个选题" + 更新卡片（按钮变灰、header变灰）
-    ↓
-异步 handleTopicSelection()：
-    ↓
-发送橙色「⏳ 正在生成文稿...」进度卡片（列出选中的选题）
-    ↓
-逐篇执行：
-  1. Claude CLI 写稿（claude -p，只输出纯 Markdown 文章，不含对话内容）
-  2. format.py 排版（自动选主题：科学信任→mint-fresh，品牌故事→coffee-house，招商转化→sunset-amber）
-  3. publish.py 推送草稿箱（自动放入默认封面图，非交互模式）
-    ↓
-发送绿色/橙色「✅ 全部完成，已推送草稿箱」通知卡片
-  - 每篇显示状态：已推送草稿箱 / 排版失败 / 推送失败
-  - 底部「📝 前往公众号草稿箱」按钮（open_url 跳转 mp.weixin.qq.com）
-```
+## 详细文档索引
 
-### Claude CLI 写稿 prompt 要点
-
-```
-- 角色：微信公众号文案写手
-- 先读 SKILL.md + references/ 获取素材
-- 只输出纯 Markdown 文章正文（1500-2500字）
-- 第一行必须是 # 标题，最后一行是正文结尾
-- 段落之间必须空一行，保持简洁干净的排版节奏
-- 禁止输出任何非文章内容（不要"好的""收到"、不要分析过程、不要合规自查表）
-```
-
-### 干净草稿要求（铁律）
-
-推送到公众号草稿箱的内容必须是**可以直接发布的干净文章**，禁止包含以下内容：
-- 评分、分级标记（S级/A级/🟢/🟡等）
-- "本文由AI生成"等暴露AI身份的声明
-- 合规检查结果、审查报告
-- "免责声明""温馨提示"等模板化尾注
-- 素材来源清单、参考文献列表
-
-文末如需提醒读者注意健康，用一句自然的话融入正文收尾即可（如"具体情况还是得问医生"），不要单独起一段做声明。
-
-排版格式要求：段与段之间空一行，保持简洁干净。分割线（如咖啡色主题的分割线）可以保留，增强阅读节奏感。
-
-### 排版主题自动映射
-
-| 内容线 | 排版主题 | 风格 |
-|--------|----------|------|
-| 科学信任 | `mint-fresh` | 薄荷绿，清新，适合科普 |
-| 健康科普 | `mint-fresh` | 同上 |
-| 品牌故事 | `coffee-house` | 咖啡棕，温暖，适合叙事 |
-| 招商转化 | `sunset-amber` | 日落琥珀，温暖有力，适合商业 |
-| **兜底默认** | `mint-fresh` | 内容线未匹配时使用 |
-
-### 长连接服务（WSClient模式）
-
-服务端代码：`scripts/server/index.ts`，基于飞书SDK WSClient长连接模式：
-- **不需要公网IP、不需要内网穿透、不需要Nginx**
-- 同时监听两种事件：`card.action.trigger`（卡片回调）和 `im.message.receive_v1`（文本消息备选）
-- 内置本地 HTTP 管理端口（默认9800），提供：
-  - `POST /send-card` — 发送多选卡片（定时脚本调用）
-  - `POST /register-topics` — 注册选题（定时脚本注入当日选题）
-  - `GET /health` — 健康检查
-  - `GET /status` — 查看当前选题和生成状态
-- 运行：`cd scripts/server && source .env && bun run index.ts`
-
-### 定时任务配置
-
-**Mac（LaunchAgent）**：
-```bash
-# 安装
-cp scripts/com.nsksd.daily-topics.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
-
-# 卸载
-launchctl unload ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
-
-# 手动触发
-launchctl start com.nsksd.daily-topics
-```
-
-plist 要点：每天10:00触发，调用 `scripts/run_nsksd_daily.sh`，需要设置 PATH 环境变量（launchd 环境的 PATH 极简，找不到 claude/bun）。
-
-**Windows（Task Scheduler）**：
-导入 `scripts/nsksd-daily-topics-task.xml`，或手动创建：每天10:00触发 `run_nsksd_daily.sh`。
-
-**定时脚本流程**（`scripts/run_nsksd_daily.sh`）：
-```
-STEP 1: generate_topics → Claude CLI 生成选题 → 提取 JSON
-STEP 2: create_feishu_doc → 创建飞书云文档 → 写入选题详情
-STEP 3: start_listener → 启动 WSClient 监听服务 → 注册选题
-STEP 4: send_topic_cards → 通过监听服务 HTTP 端口发送多选卡片
-```
-
-### 环境变量配置（scripts/server/.env）
-
-```env
-LARK_APP_ID=xxx           # 飞书应用 App ID
-LARK_APP_SECRET=xxx       # 飞书应用 App Secret
-TARGET_OPEN_ID=xxx        # 接收卡片的用户 open_id
-SKILL_PATH=/path/to/skill # Skill 根目录
-PORT=9800                 # HTTP 管理端口
-WECHAT_APP_ID=xxx         # 微信公众号 App ID（publish.py 需要）
-WECHAT_APP_SECRET=xxx     # 微信公众号 App Secret（publish.py 需要）
-```
-
-> ⚠️ 不要将 App Secret 提交到 Git。每个用户需自行配置自己的凭据。
+| 文档 | 内容 | 何时阅读 |
+|------|------|----------|
+| [docs/formatting.md](docs/formatting.md) | 排版系统、主题列表、publish.py参数、干净草稿要求 | 执行排版或修改排版流程时 |
+| [docs/feishu-cards.md](docs/feishu-cards.md) | 卡片设计、回调机制、WSClient服务、HTTP端点 | 修改卡片或调试回调流程时 |
+| [docs/scheduling.md](docs/scheduling.md) | Mac/Windows定时任务配置、故障排查 | 配置每日自动推送时 |
+| [docs/setup.md](docs/setup.md) | 首次安装、凭据获取、依赖检查 | 新机器或新用户首次使用时 |
 
 ---
 

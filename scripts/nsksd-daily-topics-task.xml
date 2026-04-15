@@ -71,10 +71,10 @@
   <Actions Context="Author">
     <Exec>
       <!-- 使用PowerShell执行daily-topics.ps1 -->
+      <!-- EDIT: 替换下面两个路径为你的实际安装路径 -->
       <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\nsksd-content-skill\scripts\daily-topics.ps1"</Arguments>
-      <!-- 修改为实际路径 -->
-      <WorkingDirectory>C:\nsksd-content-skill\scripts</WorkingDirectory>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\YOUR_PATH\nsksd-content-skill\scripts\daily-topics.ps1"</Arguments>
+      <WorkingDirectory>C:\YOUR_PATH\nsksd-content-skill\scripts</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>

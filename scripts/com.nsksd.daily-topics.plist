@@ -28,6 +28,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
+        <!-- EDIT: 替换为你的 Skill 安装路径 -->
         <string>/tmp/nsksd-content-skill/scripts/run_nsksd_daily.sh</string>
     </array>
 
@@ -46,6 +47,7 @@
         <key>PATH</key>
         <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>HOME</key>
+        <!-- EDIT: 替换为你的用户主目录 -->
         <string>/Users/suze</string>
         <key>LANG</key>
         <string>zh_CN.UTF-8</string>
@@ -53,12 +55,15 @@
 
     <!-- 工作目录 -->
     <key>WorkingDirectory</key>
+    <!-- EDIT: 替换为你的 Skill 安装路径/scripts -->
     <string>/tmp/nsksd-content-skill/scripts</string>
 
     <!-- 日志输出 -->
     <key>StandardOutPath</key>
+    <!-- EDIT: 替换为你的 Skill 安装路径/logs/... -->
     <string>/tmp/nsksd-content-skill/logs/launchd-stdout.log</string>
     <key>StandardErrorPath</key>
+    <!-- EDIT: 替换为你的 Skill 安装路径/logs/... -->
     <string>/tmp/nsksd-content-skill/logs/launchd-stderr.log</string>
 
     <!-- 失败后不自动重启（避免循环崩溃） -->

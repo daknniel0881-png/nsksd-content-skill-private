@@ -21,7 +21,7 @@ const TARGET_OPEN_ID = process.env.TARGET_OPEN_ID || "";
 const SKILL_PATH = process.env.SKILL_PATH || "/tmp/nsksd-content-skill";
 const CHAT_ID = process.env.CHAT_ID || "oc_593f103b3d1f80ca34b728de58a31ac1";
 const FORMAT_SCRIPT = `${SKILL_PATH}/scripts/format/format.py`;
-const FORMAT_OUTPUT_DIR = "/tmp/wechat-format";
+const FORMAT_OUTPUT_DIR = process.env.FORMAT_OUTPUT_DIR || "/tmp/wechat-format";
 
 /** 根据内容线自动选择温暖简洁的排版主题 */
 const THEME_MAP: Record<string, string> = {

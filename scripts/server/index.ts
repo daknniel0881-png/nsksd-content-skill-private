@@ -55,6 +55,24 @@ export function registerTopics(topics: Topic[]) {
   console.log(`[Register] 已注册 ${topics.length} 个选题`);
 }
 
+// ============ 预置FFC 2026选题 ============
+
+const FFC_TOPICS: Topic[] = [
+  { id: "ffc_1", index: 1, title: "5元成本卖300，纳豆激酶市场到底有多乱？", grade: "S", line: "品牌故事", score: "95", compliance: "🟢" },
+  { id: "ffc_2", index: 2, title: "1062人、12个月、4家医院：最硬核的成绩单", grade: "S", line: "科学信任", score: "92", compliance: "🟡" },
+  { id: "ffc_3", index: 3, title: "你吃的纳豆激酶是真的吗？5个鉴别方法", grade: "S", line: "健康科普", score: "90", compliance: "🟢" },
+  { id: "ffc_4", index: 4, title: "4月24日杭州，纳豆激酶行业可能要变天了", grade: "A", line: "品牌故事", score: "87", compliance: "🟢" },
+  { id: "ffc_5", index: 5, title: "这场论坛的专家阵容有多硬？", grade: "A", line: "科学信任", score: "85", compliance: "🟡" },
+  { id: "ffc_6", index: 6, title: "门店老板该关注这场大会的3件事", grade: "A", line: "招商转化", score: "83", compliance: "🟢" },
+  { id: "ffc_7", index: 7, title: "养生馆老板：你还在靠手艺赚钱吗？", grade: "A", line: "招商转化", score: "81", compliance: "🟢" },
+  { id: "ffc_8", index: 8, title: "从经销商到临床研究推动者，日生研15年", grade: "B", line: "品牌故事", score: "78", compliance: "🟢" },
+  { id: "ffc_9", index: 9, title: "明天见！亮点剧透+观看指南", grade: "B", line: "品牌故事", score: "75", compliance: "🟢" },
+  { id: "ffc_10", index: 10, title: "一个纳豆激酶经销商的真实账本", grade: "B", line: "招商转化", score: "73", compliance: "🟢" },
+];
+
+// 启动时自动注册
+registerTopics(FFC_TOPICS);
+
 // ============ 飞书客户端 ============
 
 const client = new Lark.Client({
@@ -89,6 +107,106 @@ async function sendTextToUser(openId: string, text: string) {
       content: JSON.stringify({ text }),
     },
   });
+}
+
+/**
+ * 发送卡片消息（通过open_id）
+ */
+async function sendCardToUser(openId: string, card: object) {
+  await client.im.v1.message.create({
+    params: { receive_id_type: "open_id" },
+    data: {
+      receive_id: openId,
+      msg_type: "interactive",
+      content: JSON.stringify(card),
+    },
+  });
+}
+
+/**
+ * 更新卡片消息（用message_id更新原卡片内容）
+ */
+async function updateCard(messageId: string, card: object) {
+  await client.im.v1.message.patch({
+    path: { message_id: messageId },
+    data: {
+      content: JSON.stringify(card),
+    },
+  });
+}
+
+/**
+ * 发送"正在写稿"进度通知卡片
+ */
+async function sendProgressCard(openId: string, selectedTopics: Topic[]) {
+  const list = selectedTopics.map(t => `${t.index}. ${t.title}`).join("\n");
+  const card = {
+    schema: "2.0",
+    config: { update_multi: true, width_mode: "fill" },
+    header: {
+      title: { tag: "plain_text", content: "\u23f3 \u6b63\u5728\u751f\u6210\u6587\u7a3f..." },
+      subtitle: { tag: "plain_text", content: `\u5171 ${selectedTopics.length} \u7bc7\uff0c\u9884\u8ba1\u6bcf\u7bc72-5\u5206\u949f` },
+      template: "orange",
+    },
+    body: {
+      direction: "vertical",
+      padding: "12px 12px 12px 12px",
+      elements: [
+        {
+          tag: "markdown",
+          content: `\u5df2\u63d0\u4ea4\u4ee5\u4e0b\u9009\u9898\uff0c\u6b63\u5728\u8c03\u7528 Claude \u64b0\u5199\u521d\u7a3f\uff1a\n\n${list}\n\n\u5b8c\u6210\u540e\u4f1a\u53d1\u9001\u901a\u77e5\uff0c\u8bf7\u7a0d\u5019\u2026`,
+        },
+      ],
+    },
+  };
+  await sendCardToUser(openId, card);
+}
+
+/**
+ * 发送"写稿完成"通知卡片
+ */
+async function sendCompletionCard(openId: string, selectedTopics: Topic[], results: { topic: Topic; success: boolean }[]) {
+  const successCount = results.filter(r => r.success).length;
+  const failCount = results.filter(r => !r.success).length;
+  const list = results.map(r =>
+    r.success
+      ? `\u2705 ${r.topic.index}. ${r.topic.title}`
+      : `\u274c ${r.topic.index}. ${r.topic.title}\uff08\u751f\u6210\u5931\u8d25\uff09`
+  ).join("\n");
+
+  const card = {
+    schema: "2.0",
+    config: { update_multi: true, width_mode: "fill" },
+    header: {
+      title: { tag: "plain_text", content: `\u2705 \u6587\u7a3f\u751f\u6210\u5b8c\u6210` },
+      subtitle: { tag: "plain_text", content: `\u6210\u529f ${successCount} \u7bc7${failCount > 0 ? `\uff0c\u5931\u8d25 ${failCount} \u7bc7` : ""}` },
+      template: "green",
+    },
+    body: {
+      direction: "vertical",
+      padding: "12px 12px 12px 12px",
+      elements: [
+        {
+          tag: "markdown",
+          content: `${list}\n\n\u8bf7\u524d\u5f80\u516c\u4f17\u53f7\u540e\u53f0\u8349\u7a3f\u7bb1\u67e5\u770b\u521d\u7a3f\ud83d\udc47`,
+        },
+        {
+          tag: "button",
+          text: { tag: "plain_text", content: "\ud83d\udcdd \u524d\u5f80\u516c\u4f17\u53f7\u8349\u7a3f\u7bb1" },
+          type: "primary",
+          width: "default",
+          size: "medium",
+          behaviors: [
+            {
+              type: "open_url",
+              default_url: "https://mp.weixin.qq.com",
+            },
+          ],
+        },
+      ],
+    },
+  };
+  await sendCardToUser(openId, card);
 }
 
 /**
@@ -180,17 +298,15 @@ async function handleTopicSelection(chatId: string, openId: string, numbers: num
 
   isGenerating = true;
 
-  // 发送确认
-  const list = selectedTopics.map(t => `${t.index}. ${t.title}`).join("\n");
-  await sendText(chatId,
-    `已收到！共选择 ${selectedTopics.length} 个选题：\n${list}\n\n正在为您生成文案，预计每篇2-5分钟...`
-  );
+  // 发送进度通知卡片
+  await sendProgressCard(openId, selectedTopics);
 
-  // 逐个生成
+  // 逐个生成，记录结果
+  const results: { topic: Topic; success: boolean }[] = [];
+
   for (const topic of selectedTopics) {
     try {
       console.log(`[Generate] 开始: ${topic.title}`);
-      await sendText(chatId, `正在生成第 ${topic.index} 篇：${topic.title}...`);
 
       const article = await generateArticle(topic.title);
 
@@ -202,13 +318,15 @@ async function handleTopicSelection(chatId: string, openId: string, numbers: num
       }
 
       console.log(`[Generate] 完成: ${topic.title}`);
+      results.push({ topic, success: true });
     } catch (err) {
       console.error(`[Generate] 失败: ${topic.title}`, err);
-      await sendText(chatId, `第${topic.index}篇生成失败：${err}\n请手动执行：/nsksd 文案 ${topic.title}`);
+      results.push({ topic, success: false });
     }
   }
 
-  await sendText(chatId, `全部文案生成完毕！共 ${selectedTopics.length} 篇。`);
+  // 发送完成通知卡片
+  await sendCompletionCard(openId, selectedTopics, results);
   isGenerating = false;
 }
 
@@ -253,6 +371,77 @@ const wsClient = new Lark.WSClient({
 
 wsClient.start({
   eventDispatcher: new Lark.EventDispatcher({}).register({
+    // ============ 卡片回调：处理form提交 ============
+    "card.action.trigger": async (data: any) => {
+      try {
+        const action = data?.event?.action;
+        const openId = data?.event?.operator?.open_id;
+        const actionValue = action?.value || {};
+
+        console.log(`[CardAction] 收到卡片回调:`, JSON.stringify(data?.event, null, 2));
+
+        // 检查是否是提交按钮的callback
+        if (actionValue?.action === "submit_topics") {
+          // callback模式下，checker状态在 data.event.action.form_value 或需要从卡片状态获取
+          // 由于不用form容器，checker状态可能在 data.event.action 的其他字段
+          // 先记录完整数据结构用于调试
+          console.log(`[CardAction] 完整action:`, JSON.stringify(action, null, 2));
+
+          // 尝试多种方式获取checker状态
+          const formValue = action?.form_value || {};
+          const checkerValues = action?.checked_value || {};
+
+          const selectedNumbers: number[] = [];
+
+          // 方式1: form_value
+          for (const [key, value] of Object.entries(formValue)) {
+            if (key.startsWith("topic_") && value === true) {
+              const num = parseInt(key.replace("topic_", ""), 10);
+              if (!isNaN(num)) selectedNumbers.push(num);
+            }
+          }
+
+          // 方式2: checked_value
+          if (selectedNumbers.length === 0) {
+            for (const [key, value] of Object.entries(checkerValues)) {
+              if (key.startsWith("topic_") && value === true) {
+                const num = parseInt(key.replace("topic_", ""), 10);
+                if (!isNaN(num)) selectedNumbers.push(num);
+              }
+            }
+          }
+
+          console.log(`[CardAction] 选中的选题: ${selectedNumbers.join(", ") || "(未检测到勾选)"}`);
+
+          // 如果没检测到勾选，默认提示用回复编号的方式
+          if (selectedNumbers.length === 0) {
+            return {
+              toast: { type: "info", content: "请在聊天框回复选题编号（如 1 3 5）来提交选题" }
+            };
+          }
+
+          const chatId = "oc_593f103b3d1f80ca34b728de58a31ac1";
+
+          // 异步处理写稿
+          handleTopicSelection(chatId, openId, selectedNumbers).catch(err => {
+            console.error("[CardAction] 处理失败:", err);
+          });
+
+          return {
+            toast: {
+              type: "success",
+              content: `已提交 ${selectedNumbers.length} 个选题，正在生成文案...`
+            }
+          };
+        }
+
+        return {};
+      } catch (err) {
+        console.error("[CardAction] 处理卡片回调出错:", err);
+        return { toast: { type: "error", content: "处理失败，请重试" } };
+      }
+    },
+    // ============ 消息事件：处理文本回复 ============
     "im.message.receive_v1": async (data: any) => {
       try {
         const message = data.message;

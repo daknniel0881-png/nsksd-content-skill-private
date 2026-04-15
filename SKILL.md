@@ -432,6 +432,96 @@ description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill。当用户提
 
 ---
 
+## 阶段六：公众号排版与发布（`/nsksd 排版 <文案>`）
+
+### 排版系统
+
+本Skill内置完整的公众号排版系统，支持31个主题风格。排版流程：
+
+1. 文案（Markdown）→ AI结构化预处理（补标题、加粗、分段）→ 套用主题 → 生成微信兼容HTML → 推送草稿箱
+
+### 排版脚本
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/format/format.py` | Markdown → 微信兼容HTML（内联样式） |
+| `scripts/format/publish.py` | HTML → 公众号草稿箱（API推送） |
+
+### 排版主题（themes/ 目录，31个）
+
+日生研内容推荐使用以下主题：
+
+| 推荐场景 | 主题 | 说明 |
+|----------|------|------|
+| **默认/日常** | `newspaper` | 报纸风，适合行业分析、科普长文 |
+| **品牌故事** | `chinese` | 中国风，红色+楷体，适合企业历程、品牌文化 |
+| **科学信任** | `elegant-navy` | 精致藏青，适合临床数据、专家观点 |
+| **招商转化** | `focus-gold` | 聚焦金，适合商业分析、招商文案 |
+| **健康科普** | `mint-fresh` | 薄荷绿，清新自然，适合健康科普 |
+| **大会报道** | `magazine` | 杂志风，适合活动报道、产品评测 |
+| **紧急/重磅** | `bold-navy` | 醒目藏青，适合重要公告 |
+
+全部31个主题：bauhaus、bold-blue/green/navy、bytedance、chinese、coffee-house、elegant-blue/green/navy、focus-blue/gold/red、github、ink、lavender-dream、magazine、midnight、minimal-blue/gold/gray/navy/red、mint-fresh、newspaper、sports、sspai、sunset-amber、terracotta、v5-sample、wechat-native
+
+### 排版执行流程
+
+```bash
+# 1. 排版（指定主题）
+python3 scripts/format/format.py --input article.md --theme newspaper --output /tmp/wechat-format/
+
+# 2. 预览（自动打开浏览器）
+open /tmp/wechat-format/article.html
+
+# 3. 推送到草稿箱（需配置公众号API凭据）
+python3 scripts/format/publish.py --html /tmp/wechat-format/article.html --title "文章标题" --author "日生研"
+```
+
+### AI结构化预处理（排版前自动执行）
+
+读取文案后检测Markdown结构完整度，如果缺少标题/加粗/列表等格式标记，自动补充：
+
+1. **加标题**：识别逻辑段落转换点，插入 `##` 标题
+2. **分段落**：确保段落间有空行，长段落在语义转换处拆分
+3. **加列表**：识别并列/枚举内容，加列表标记
+4. **加强调**：关键词、产品名、核心概念加 `**加粗**`
+5. **清理格式**：去除多余空行、修正缩进、统一标点
+6. **不改措辞**：只加结构标记，不调语序、不增删内容
+
+---
+
+## 飞书卡片推送系统
+
+### 每日选题推送流程
+
+每天早上10点定时推送两张卡片：
+
+**卡片1：📋 每日选题推送**（靛蓝色）
+- 按S/A/B分级列出当日选题清单（10个）
+- 底部附飞书云文档按钮（包含每个选题的写作角度、大纲、审核要点）
+
+**卡片2：✅ 选题评审 · 勾选提交**（蓝色）
+- 每个选题带checker多选框，显示：分级+方向+分数
+- 下方加粗显示选题标题
+- 底部提交按钮，点击后触发写稿流程
+
+### 写稿流程通知机制
+
+```
+用户勾选选题 → 点提交 → toast提示"已提交"
+                         → 发送橙色「⏳ 正在生成文稿...」进度卡片
+                         → 逐篇调用Claude CLI写稿
+                         → 发送绿色「✅ 文稿生成完成」通知卡片（含"前往草稿箱"按钮）
+```
+
+### 长连接服务
+
+服务端代码：`scripts/server/index.ts`，基于飞书SDK WSClient长连接模式：
+- 不需要公网IP、不需要内网穿透
+- 支持消息事件（用户回复编号选题）和卡片回调（checker+提交按钮）
+- 运行：`cd scripts/server && bun run index.ts`
+
+---
+
 ## 关键提醒
 
 1. **纳豆激酶是食品，不是药品**。任何内容都不能暗示治疗效果，必须使用"辅助""养护""改善风险"等表述
@@ -439,3 +529,4 @@ description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill。当用户提
 3. **目标读者是门店老板**，不是消费者。内容要讲"赚钱逻辑"，不是讲"产品功效"
 4. **村口大爷原则**是最高优先级的写作标准。任何时候在"专业"和"通俗"之间做选择，选通俗
 5. **标题永远是第一优先级**。内容素材不缺，关键是"看到标题愿意点进来"
+6. **排版走themes/**。写完文案后用 `scripts/format/format.py` 排版，默认主题newspaper，按内容线选择推荐主题

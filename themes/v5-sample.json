@@ -1,0 +1,76 @@
+{
+  "name": "v5-sample",
+  "description": "从草稿「æ ·åæ¨¡æ¿ v5ï¼ä¿®å¤çï¼」反向拆解",
+  "colors": {
+    "primary": "#333333",
+    "accent": "#333333",
+    "background": "#ffffff",
+    "blockquote_bg": "#f7f7f7",
+    "code_bg": "#282c34",
+    "hr_color": "#e0e0e0",
+    "footnote_bg": "#ffffff"
+  },
+  "styles": {
+    "wrapper": {
+      "color": "rgb(64, 64, 64)",
+      "letter_spacing": "2.2px",
+      "line_height": "1.8",
+      "padding_left": "15px",
+      "padding_right": "15px",
+      "box_sizing": "border-box",
+      "font_style": "normal",
+      "font_weight": "400",
+      "text_align": "justify",
+      "font_size": "16px"
+    },
+    "p": {
+      "white_space": "normal",
+      "margin": "0px",
+      "padding": "0px",
+      "box_sizing": "border-box"
+    },
+    "strong": {
+      "box_sizing": "border-box"
+    },
+    "em": {
+      "box_sizing": "border-box"
+    },
+    "img": {
+      "box_sizing": "border-box",
+      "width": "3.6em",
+      "margin_left": "-0.8em",
+      "text_align": "start",
+      "height": "auto !important"
+    },
+    "code": {
+      "background_color": "rgb(245, 245, 245)",
+      "color": "rgb(160, 60, 72)",
+      "padding": "2px 6px",
+      "border_radius": "3px",
+      "font_size": "14px",
+      "font_family": "Menlo, Monaco, Consolas, monospace",
+      "letter_spacing": "0px",
+      "box_sizing": "border-box"
+    },
+    "table": {
+      "width": "100%",
+      "border_collapse": "collapse",
+      "font_size": "14px",
+      "letter_spacing": "1px",
+      "box_sizing": "border-box"
+    },
+    "th": {
+      "background_color": "rgb(45, 45, 45)",
+      "color": "rgb(255, 255, 255)",
+      "padding": "10px 12px",
+      "text_align": "left",
+      "font_weight": "bold",
+      "box_sizing": "border-box"
+    },
+    "td": {
+      "padding": "10px 12px",
+      "border_bottom": "1px solid rgb(229, 229, 229)",
+      "box_sizing": "border-box"
+    }
+  }
+}

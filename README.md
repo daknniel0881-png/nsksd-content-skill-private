@@ -19,13 +19,25 @@
 ```bash
 cd ~/.claude/skills/
 git clone https://github.com/daknniel0881-png/nsksd-content-skill-private.git nsksd-content
+cd nsksd-content
+
+# 运行安装脚本（自动检查依赖、创建配置文件、安装服务端依赖）
+bash scripts/setup.sh
+
+# 编辑配置文件，填入你的凭据
+vim scripts/server/.env
+vim config.json
 ```
 
 ### 方式二：从zip解压
 
 ```bash
 unzip nsksd-content-skill.zip -d ~/.claude/skills/nsksd-content
+cd ~/.claude/skills/nsksd-content
+bash scripts/setup.sh
 ```
+
+> 详细的凭据获取和配置步骤见 [docs/setup.md](docs/setup.md)
 
 安装后重启 Claude Code 即可使用。
 
@@ -62,19 +74,42 @@ unzip nsksd-content-skill.zip -d ~/.claude/skills/nsksd-content
 ## 文件结构
 
 ```
-nsksd-content/
-├── SKILL.md                              ← 主文件：五阶段工作流定义（441行）
-├── README.md                             ← 本说明文档
-├── references/                           ← 精华提炼参考文档
-│   ├── knowledge-base.md                 ← 知识库核心素材精华（临床数据/专家背书/企业历程）
-│   ├── topic-library.md                  ← 选题库（12个已验证选题+8篇大会预热+7种标题公式）
-│   ├── compliance.md                     ← 完整合规审查机制（法规+平台规则+处罚案例+禁用词）
-│   └── compliance-checklist.md           ← 20项合规检查清单（选题预检+标题检查+正文审查）
-└── knowledge/                            ← 完整知识库原文件（77份）
-    ├── 核心文档/                          ← 7份：企业介绍/百问百答/专家建议/专家共识/临床册子/科学循证文献
-    ├── 2025新闻/                          ← 20份：2025-2026年央媒报道
-    ├── 2025之前/                          ← 49份：2019-2024年历史新闻报道
-    └── FFC2026大会预热宣传策划.md          ← FFC大会预热策划方案
+nsksd-content-skill/
+├── SKILL.md                    # Skill主文件（AI读取的内容创作规范，497行）
+├── README.md                   # 本说明文档
+├── CHANGELOG.md                # 版本更新日志
+├── config.json.example         # 配置模板（微信公众号凭据）
+├── docs/                       # 详细文档
+│   ├── setup.md                # 首次安装配置指南
+│   ├── formatting.md           # 排版系统与发布流程
+│   ├── feishu-cards.md         # 飞书卡片系统（双卡片+回调）
+│   └── scheduling.md           # 定时任务配置（Mac/Windows）
+├── references/                 # 精华提炼参考文档
+│   ├── knowledge-base.md       # 知识库核心素材（临床数据/专家背书/企业历程）
+│   ├── topic-library.md        # 选题库（12个已验证选题+8篇大会预热+7种标题公式）
+│   ├── compliance.md           # 完整合规审查机制（法规+平台规则+处罚案例）
+│   └── compliance-checklist.md # 20项合规检查清单
+├── knowledge/                  # 完整知识库原文件（77份）
+│   ├── 核心文档/               # 7份：企业介绍/百问百答/专家建议/专家共识/临床册子
+│   ├── 2025新闻/               # 20份：2025-2026年央媒报道
+│   ├── 2025之前/               # 49份：2019-2024年历史新闻报道
+│   └── FFC2026大会预热宣传策划.md
+├── themes/                     # 31个公众号排版主题（JSON格式）
+├── templates/                  # HTML模板（预览页、主题画廊）
+├── assets/                     # 静态资源（默认封面图等）
+├── scripts/
+│   ├── setup.sh                # 一键安装配置脚本
+│   ├── run_nsksd_daily.sh      # 每日定时执行脚本
+│   ├── com.nsksd.daily-topics.plist  # Mac LaunchAgent 定时任务
+│   ├── nsksd-daily-topics-task.xml   # Windows Task Scheduler 定时任务
+│   ├── format/
+│   │   ├── format.py           # Markdown → HTML 排版（31个主题）
+│   │   └── publish.py          # HTML → 微信公众号草稿箱
+│   └── server/
+│       ├── index.ts            # 飞书WSClient长连接服务
+│       ├── .env.example        # 环境变量模板
+│       └── package.json        # Bun依赖
+└── logs/                       # 运行日志（已gitignore）
 ```
 
 ## 合规审查机制
@@ -147,21 +182,9 @@ nsksd-content/
 
 ## 更新日志
 
-### v2.0（2026-04-15）
-- 新增完整合规审查机制（法律法规+平台规则+处罚案例）
-- 合规检查从"只在复审阶段做"升级为"贯穿全流程四个阶段"
-- 新增20项合规检查清单（`compliance-checklist.md`）
-- 新增独立合规检查命令（`/nsksd 合规检查`）
-- 选题阶段新增5项合规预检+安全分级（🟢🟡🔴）
-- 标题阶段新增5项标题合规检查
-- 撰写阶段新增7条写作合规铁律
-- 评分体系从四维度升级为五维度（新增合规安全度）
-- 新增完整README说明文档
+当前版本：**v6.0**（2026-04-15）
 
-### v1.0（2026-04-15）
-- 初始版本，五阶段内容工厂工作流
-- 77份知识库原文件
-- 12个已验证选题+8篇大会预热选题
+完整更新历史见 [CHANGELOG.md](CHANGELOG.md)
 
 ## 许可
 

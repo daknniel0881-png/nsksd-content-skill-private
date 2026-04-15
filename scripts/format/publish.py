@@ -395,10 +395,13 @@ def main():
             sys.exit(1)
         elif failed > 0:
             print("  警告: 部分图片上传失败，文章中对应位置可能显示空白")
-            resp = input("  继续发布？").strip().lower()
-            if resp != "y":
-                print("  已中止")
-                sys.exit(0)
+            if os.getenv("AUTO_PUBLISH") == "1" or not sys.stdin.isatty():
+                print("  自动模式：继续发布")
+            else:
+                resp = input("  继续发布？(y/N) ").strip().lower()
+                if resp != "y":
+                    print("  已中止")
+                    sys.exit(0)
     else:
         print("\n无正文图片需上传")
 

@@ -1,0 +1,20 @@
+# 日志
+logs/
+*.log
+
+# 环境变量和配置文件（含敏感凭据）
+.env
+scripts/server/.env
+config.json
+scripts/config.json
+
+# oh-my-claudecode 缓存
+.omc/
+scripts/server/.omc/
+
+# Node 依赖（已在 repo 中或按需安装）
+node_modules/
+
+# 临时文件
+/tmp/
+*.pid

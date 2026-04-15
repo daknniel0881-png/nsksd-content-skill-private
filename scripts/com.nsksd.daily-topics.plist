@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    日生研NSKSD · 每日选题定时推送（macOS LaunchAgent）
+
+    安装方法：
+      cp scripts/com.nsksd.daily-topics.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
+
+    卸载：
+      launchctl unload ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
+
+    手动触发：
+      launchctl start com.nsksd.daily-topics
+
+    查看状态：
+      launchctl list | grep nsksd
+
+    查看日志：
+      tail -f /tmp/nsksd-content-skill/logs/daily-$(date +%Y-%m-%d).log
+    -->
+
+    <key>Label</key>
+    <string>com.nsksd.daily-topics</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/tmp/nsksd-content-skill/scripts/run_nsksd_daily.sh</string>
+    </array>
+
+    <!-- 每天早上10:00触发（本地时间） -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>10</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- 环境变量 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/suze</string>
+        <key>LANG</key>
+        <string>zh_CN.UTF-8</string>
+    </dict>
+
+    <!-- 工作目录 -->
+    <key>WorkingDirectory</key>
+    <string>/tmp/nsksd-content-skill/scripts</string>
+
+    <!-- 日志输出 -->
+    <key>StandardOutPath</key>
+    <string>/tmp/nsksd-content-skill/logs/launchd-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/nsksd-content-skill/logs/launchd-stderr.log</string>
+
+    <!-- 失败后不自动重启（避免循环崩溃） -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- 启动时不自动运行（只在计划时间运行） -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

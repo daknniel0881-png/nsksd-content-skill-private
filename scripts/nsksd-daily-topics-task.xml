@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  日生研NSKSD · 每日选题定时推送（Windows Task Scheduler）
+
+  安装方法（以管理员身份运行PowerShell）：
+    schtasks /Create /TN "NSKSD\DailyTopics" /XML "C:\path\to\nsksd-daily-topics-task.xml"
+
+  或者在任务计划程序GUI中导入此XML文件。
+
+  卸载：
+    schtasks /Delete /TN "NSKSD\DailyTopics" /F
+
+  手动触发：
+    schtasks /Run /TN "NSKSD\DailyTopics"
+
+  查看状态：
+    schtasks /Query /TN "NSKSD\DailyTopics" /V
+
+  注意：请修改下方的路径和用户名为实际值。
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>日生研NSKSD 每日选题自动生成并推送到飞书（每天10:00）</Description>
+    <Author>NSKSD-ContentSkill</Author>
+    <URI>\NSKSD\DailyTopics</URI>
+  </RegistrationInfo>
+
+  <Triggers>
+    <!-- 每天早上10:00触发 -->
+    <CalendarTrigger>
+      <StartBoundary>2026-04-15T10:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+
+  <Principals>
+    <Principal id="Author">
+      <!-- 修改为实际Windows用户名 -->
+      <UserId>S-1-5-21-PLACEHOLDER</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteAppSession>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+    <WakeToRun>false</WakeToRun>
+    <!-- 超时30分钟（选题生成可能需要较长时间） -->
+    <ExecutionTimeLimit>PT30M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+
+  <Actions Context="Author">
+    <Exec>
+      <!-- 使用PowerShell执行daily-topics.ps1 -->
+      <Command>powershell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\nsksd-content-skill\scripts\daily-topics.ps1"</Arguments>
+      <!-- 修改为实际路径 -->
+      <WorkingDirectory>C:\nsksd-content-skill\scripts</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>

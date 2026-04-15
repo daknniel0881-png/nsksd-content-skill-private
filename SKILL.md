@@ -466,15 +466,30 @@ description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill。当用户提
 ### 排版执行流程
 
 ```bash
-# 1. 排版（指定主题）
+# 1. 排版（指定主题，输出到 /tmp/wechat-format/）
 python3 scripts/format/format.py --input article.md --theme newspaper --output /tmp/wechat-format/
+# 输出目录结构：/tmp/wechat-format/{标题}/{文件名}/article.html + images/
 
-# 2. 预览（自动打开浏览器）
-open /tmp/wechat-format/article.html
+# 2. 预览（打开 preview.html，带「复制到微信」按钮）
+open /tmp/wechat-format/{标题}/{文件名}/preview.html
 
-# 3. 推送到草稿箱（需配置公众号API凭据）
-python3 scripts/format/publish.py --html /tmp/wechat-format/article.html --title "文章标题" --author "日生研"
+# 3. 推送到草稿箱（--dir 指向排版输出目录，需配置公众号API凭据）
+python3 scripts/format/publish.py --dir /tmp/wechat-format/{标题}/{文件名}/ --title "文章标题" --cover images/cover.jpg
+
+# 或者一步到位：--input 直接传 Markdown，自动排版+推送
+python3 scripts/format/publish.py --input article.md --theme newspaper --title "文章标题"
 ```
+
+publish.py 参数说明：
+| 参数 | 说明 |
+|------|------|
+| `--dir / -d` | format.py 的输出目录（含 article.html 和 images/） |
+| `--input / -i` | Markdown 文件路径（自动调用 format.py 排版后发布） |
+| `--cover / -c` | 封面图片路径（不指定则从 images/ 目录自动选取） |
+| `--title / -t` | 文章标题（默认从 HTML 提取） |
+| `--theme` | 排版主题（仅 --input 模式有效） |
+| `--author / -a` | 作者名（默认从 config.json 读取） |
+| `--dry-run` | 模拟运行，不实际推送 |
 
 ### AI结构化预处理（排版前自动执行）
 
@@ -493,32 +508,153 @@ python3 scripts/format/publish.py --html /tmp/wechat-format/article.html --title
 
 ### 每日选题推送流程
 
-每天早上10点定时推送两张卡片：
-
-**卡片1：📋 每日选题推送**（靛蓝色）
-- 按S/A/B分级列出当日选题清单（10个）
-- 底部附飞书云文档按钮（包含每个选题的写作角度、大纲、审核要点）
-
-**卡片2：✅ 选题评审 · 勾选提交**（蓝色）
-- 每个选题带checker多选框，显示：分级+方向+分数
-- 下方加粗显示选题标题
-- 底部提交按钮，点击后触发写稿流程
-
-### 写稿流程通知机制
+每天早上10点，定时脚本自动执行以下流程：
 
 ```
-用户勾选选题 → 点提交 → toast提示"已提交"
-                         → 发送橙色「⏳ 正在生成文稿...」进度卡片
-                         → 逐篇调用Claude CLI写稿
-                         → 发送绿色「✅ 文稿生成完成」通知卡片（含"前往草稿箱"按钮）
+STEP 1: Claude CLI 生成10个选题（含S/A/B分级、五维评分、合规预检）
+STEP 2: 创建飞书云文档（写入选题详情，设置曲率可访问）
+STEP 3: 启动WSClient长连接监听服务（注册选题到内存）
+STEP 4: 通过监听服务HTTP端口依次发送两张卡片（清单卡 + 多选卡）
 ```
 
-### 长连接服务
+### 卡片设计（两张卡片）
+
+**第一张：📋 选题清单卡**（绿色，schema 1.0）：
+- 纯展示卡片，按 S/A/B 等级分组列出所有选题概览
+- 每个选题显示：序号、标题（加粗）、内容线、评分、合规标记、一句话摘要
+- 等级之间用 `hr` 分割线
+- 底部一个「📄 查看完整选题方案」按钮（`multi_url` 跳转飞书云文档）
+- 飞书云文档包含每个选题的详细构思：核心角度、目标人群、备选标题、大纲框架等
+- HTTP端点：`POST /send-summary-card`，body可传 `{ "doc_url": "..." }`
+
+**第二张：📝 多选选题卡**（蓝色，schema 2.0）：
+- 使用 `form` 容器包裹所有交互元素
+- 按 S/A/B 等级分组，每组有加粗 markdown 标题（🏆 S级 / ⭐ A级 / 📌 B级）
+- 每个选题用 `checker` 组件（form 内，不配 behaviors，避免200672错误）
+- checker 的 text 显示两行：第一行 `内容线（分数）合规标记  标题`，第二行 `一句话摘要`
+- 等级之间用 `hr` 分割线
+- 底部一个 `button`（`form_action_type: "submit"`），点击提交整个 form
+- HTTP端点：`POST /send-card`
+
+**⚠️ 关键技术点**：
+- schema 1.0 支持 `action` tag（清单卡用），schema 2.0 不支持（多选卡用 form + checker）
+- 飞书卡片 2.0 的 `checker` 在 `form` 内时，**不能配 behaviors**（否则报 200672 错误）
+- 提交按钮必须设置 `form_action_type: "submit"`，不是普通 button
+- 用户点提交 → 飞书通过 WSClient 长连接推送 `card.action.trigger` 回调
+- 回调的 `action.form_value` 格式：`{ "topic_1": true, "topic_3": true, "topic_5": false, ... }`
+- 回调处理必须在3秒内返回（写稿用 `handleTopicSelection().catch()` 异步处理）
+- 返回值中 `card.type: "raw"` + `card.data: 新卡片JSON` 可以原地更新卡片（按钮变灰）
+
+### 多选卡回调 → 写稿 → 排版 → 推送草稿箱
+
+```
+用户在清单卡查看选题详情 → 在多选卡勾选要写的选题 → 点「📝 提交选题，开始创作」
+    ↓
+card.action.trigger 回调 → 解析 form_value 中 value===true 的 checker
+    ↓
+返回 toast "已提交X个选题" + 更新卡片（按钮变灰、header变灰）
+    ↓
+异步 handleTopicSelection()：
+    ↓
+发送橙色「⏳ 正在生成文稿...」进度卡片（列出选中的选题）
+    ↓
+逐篇执行：
+  1. Claude CLI 写稿（claude -p，只输出纯 Markdown 文章，不含对话内容）
+  2. format.py 排版（自动选主题：科学信任→mint-fresh，品牌故事→coffee-house，招商转化→sunset-amber）
+  3. publish.py 推送草稿箱（自动放入默认封面图，非交互模式）
+    ↓
+发送绿色/橙色「✅ 全部完成，已推送草稿箱」通知卡片
+  - 每篇显示状态：已推送草稿箱 / 排版失败 / 推送失败
+  - 底部「📝 前往公众号草稿箱」按钮（open_url 跳转 mp.weixin.qq.com）
+```
+
+### Claude CLI 写稿 prompt 要点
+
+```
+- 角色：微信公众号文案写手
+- 先读 SKILL.md + references/ 获取素材
+- 只输出纯 Markdown 文章正文（1500-2500字）
+- 第一行必须是 # 标题，最后一行是正文结尾
+- 段落之间必须空一行，保持简洁干净的排版节奏
+- 禁止输出任何非文章内容（不要"好的""收到"、不要分析过程、不要合规自查表）
+```
+
+### 干净草稿要求（铁律）
+
+推送到公众号草稿箱的内容必须是**可以直接发布的干净文章**，禁止包含以下内容：
+- 评分、分级标记（S级/A级/🟢/🟡等）
+- "本文由AI生成"等暴露AI身份的声明
+- 合规检查结果、审查报告
+- "免责声明""温馨提示"等模板化尾注
+- 素材来源清单、参考文献列表
+
+文末如需提醒读者注意健康，用一句自然的话融入正文收尾即可（如"具体情况还是得问医生"），不要单独起一段做声明。
+
+排版格式要求：段与段之间空一行，保持简洁干净。分割线（如咖啡色主题的分割线）可以保留，增强阅读节奏感。
+
+### 排版主题自动映射
+
+| 内容线 | 排版主题 | 风格 |
+|--------|----------|------|
+| 科学信任 | `mint-fresh` | 薄荷绿，清新，适合科普 |
+| 健康科普 | `mint-fresh` | 同上 |
+| 品牌故事 | `coffee-house` | 咖啡棕，温暖，适合叙事 |
+| 招商转化 | `sunset-amber` | 日落琥珀，温暖有力，适合商业 |
+| **兜底默认** | `mint-fresh` | 内容线未匹配时使用 |
+
+### 长连接服务（WSClient模式）
 
 服务端代码：`scripts/server/index.ts`，基于飞书SDK WSClient长连接模式：
-- 不需要公网IP、不需要内网穿透
-- 支持消息事件（用户回复编号选题）和卡片回调（checker+提交按钮）
-- 运行：`cd scripts/server && bun run index.ts`
+- **不需要公网IP、不需要内网穿透、不需要Nginx**
+- 同时监听两种事件：`card.action.trigger`（卡片回调）和 `im.message.receive_v1`（文本消息备选）
+- 内置本地 HTTP 管理端口（默认9800），提供：
+  - `POST /send-card` — 发送多选卡片（定时脚本调用）
+  - `POST /register-topics` — 注册选题（定时脚本注入当日选题）
+  - `GET /health` — 健康检查
+  - `GET /status` — 查看当前选题和生成状态
+- 运行：`cd scripts/server && source .env && bun run index.ts`
+
+### 定时任务配置
+
+**Mac（LaunchAgent）**：
+```bash
+# 安装
+cp scripts/com.nsksd.daily-topics.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
+
+# 卸载
+launchctl unload ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
+
+# 手动触发
+launchctl start com.nsksd.daily-topics
+```
+
+plist 要点：每天10:00触发，调用 `scripts/run_nsksd_daily.sh`，需要设置 PATH 环境变量（launchd 环境的 PATH 极简，找不到 claude/bun）。
+
+**Windows（Task Scheduler）**：
+导入 `scripts/nsksd-daily-topics-task.xml`，或手动创建：每天10:00触发 `run_nsksd_daily.sh`。
+
+**定时脚本流程**（`scripts/run_nsksd_daily.sh`）：
+```
+STEP 1: generate_topics → Claude CLI 生成选题 → 提取 JSON
+STEP 2: create_feishu_doc → 创建飞书云文档 → 写入选题详情
+STEP 3: start_listener → 启动 WSClient 监听服务 → 注册选题
+STEP 4: send_topic_cards → 通过监听服务 HTTP 端口发送多选卡片
+```
+
+### 环境变量配置（scripts/server/.env）
+
+```env
+LARK_APP_ID=xxx           # 飞书应用 App ID
+LARK_APP_SECRET=xxx       # 飞书应用 App Secret
+TARGET_OPEN_ID=xxx        # 接收卡片的用户 open_id
+SKILL_PATH=/path/to/skill # Skill 根目录
+PORT=9800                 # HTTP 管理端口
+WECHAT_APP_ID=xxx         # 微信公众号 App ID（publish.py 需要）
+WECHAT_APP_SECRET=xxx     # 微信公众号 App Secret（publish.py 需要）
+```
+
+> ⚠️ 不要将 App Secret 提交到 Git。每个用户需自行配置自己的凭据。
 
 ---
 

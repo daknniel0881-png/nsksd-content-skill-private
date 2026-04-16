@@ -333,7 +333,9 @@ python3 scripts/format/generate_image.py --prompt "图片描述" --filename "out
 
 写完文案后自动排版：
 ```bash
-python3 scripts/format/format.py --input article.md --theme newspaper
+python3 scripts/format/format.py --input article.md --theme mint-fresh --no-open
+# 输出目录：/tmp/wechat-format/{文件名stem}/
+# 包含：article.html（微信兼容HTML）、preview.html（预览页，带「复制到微信」按钮）
 ```
 
 推荐主题映射：
@@ -386,10 +388,22 @@ python3 scripts/format/format.py --input article.md --theme newspaper
 推送前对最终版文案做一次快速合规扫描（法律红线8项 + 禁用词扫描），确保没有遗漏。
 
 **4.2 推送草稿箱**
+
+方式一：从 Markdown 一步到位（自动排版+推送）
 ```bash
-python3 scripts/format/publish.py --input article.md --theme newspaper --title "文章标题"
+python3 scripts/format/publish.py --input article.md --theme mint-fresh --title "文章标题" --cover assets/default-cover.jpg
 ```
 
+方式二：先排版再推送（两步走）
+```bash
+# 排版（输出到 /tmp/wechat-format/{文件名}/）
+python3 scripts/format/format.py --input article.md --theme mint-fresh --no-open
+
+# 推送（--dir 指向排版输出目录，--cover 必须指定封面图）
+python3 scripts/format/publish.py --dir /tmp/wechat-format/{文件名}/ --title "文章标题" --cover assets/default-cover.jpg
+```
+
+> ⚠️ **封面图是必须的**：publish.py 要求 `--cover` 参数，不指定会报错。没有自定义封面时用 `assets/default-cover.jpg`。
 > 详细的推送操作步骤见 [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md)
 
 **4.3 发送飞书通知**

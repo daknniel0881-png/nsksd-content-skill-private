@@ -343,6 +343,80 @@ def copy_markdown_images(text: str, input_dir: Path, output_dir: Path) -> str:
     return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", replace_md_img, text)
 
 
+def process_image_placeholders(text: str, output_dir: Path) -> str:
+    """处理图片占位符 <!-- IMAGE: 描述 --> 或 <!-- IMAGE(style): 描述 -->
+
+    AI 写文章时可以插入占位符，排版时自动调用 generate_image.py 生成图片。
+
+    占位符格式：
+        <!-- IMAGE: 纳豆激酶临床数据信息图 -->
+        <!-- IMAGE(science): 1062人临床试验数据可视化 -->
+        <!-- IMAGE(cover): 文章封面图 -->
+        <!-- IMAGE(brand): 日生研品牌历程时间线 -->
+
+    如果 GEMINI_API_KEY 未设置，占位符保留为文字提示（不阻断排版流程）。
+    """
+    import subprocess as _sp
+
+    images_dir = output_dir / "images"
+    gen_script = Path(__file__).parent / "generate_image.py"
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    img_counter = [0]
+
+    def replace_placeholder(match):
+        style = match.group(1) or ""  # science/brand/health/business/cover 或空
+        description = match.group(2).strip()
+        img_counter[0] += 1
+        idx = img_counter[0]
+
+        if not api_key:
+            print(f"  ⚠ 图片占位符 #{idx}: 未设置 GEMINI_API_KEY，跳过生成")
+            return f'<p style="color:#999;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">🖼 配图占位：{description}</p>'
+
+        if not gen_script.exists():
+            print(f"  ⚠ 图片占位符 #{idx}: generate_image.py 不存在，跳过生成")
+            return f'<p style="color:#999;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">🖼 配图占位：{description}</p>'
+
+        images_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"gen-{idx}-{description[:20].replace(' ', '-')}.png"
+        filepath = images_dir / filename
+
+        print(f"  🎨 生成配图 #{idx}: {description[:50]}...")
+
+        cmd = [
+            sys.executable, str(gen_script),
+            "--prompt", description,
+            "--filename", str(filepath),
+            "--resolution", "2K",
+        ]
+        if style:
+            cmd.extend(["--style", style])
+
+        try:
+            result = _sp.run(cmd, capture_output=True, text=True, timeout=120,
+                             env={**os.environ, "GEMINI_API_KEY": api_key})
+            if result.returncode == 0 and filepath.exists():
+                print(f"  ✓ 配图 #{idx} 生成成功: {filename}")
+                return f'![{description}](images/{filename})'
+            else:
+                err = result.stderr[:200] if result.stderr else "未知错误"
+                print(f"  ✗ 配图 #{idx} 生成失败: {err}")
+                return f'<p style="color:#999;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">🖼 配图生成失败：{description}</p>'
+        except _sp.TimeoutExpired:
+            print(f"  ✗ 配图 #{idx} 超时（120秒）")
+            return f'<p style="color:#999;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">🖼 配图超时：{description}</p>'
+        except Exception as e:
+            print(f"  ✗ 配图 #{idx} 异常: {e}")
+            return f'<p style="color:#999;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">🖼 配图异常：{description}</p>'
+
+    # 匹配 <!-- IMAGE: 描述 --> 或 <!-- IMAGE(style): 描述 -->
+    return re.sub(
+        r'<!--\s*IMAGE(?:\((\w+)\))?\s*:\s*(.+?)\s*-->',
+        replace_placeholder,
+        text
+    )
+
+
 def extract_links_as_footnotes(html: str) -> tuple[str, str]:
     """提取外部链接转为脚注格式
 
@@ -1572,6 +1646,7 @@ def format_for_output(content: str, input_path: Path, theme: dict,
     output_dir.mkdir(parents=True, exist_ok=True)
     content = convert_wikilinks(content, vault_root, output_dir)
     content = copy_markdown_images(content, input_path.parent, output_dir)
+    content = process_image_placeholders(content, output_dir)
 
     html = md_to_html(content)
 
@@ -1675,6 +1750,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     content = convert_wikilinks(content, vault_root, output_dir)
     content = copy_markdown_images(content, input_path.parent, output_dir)
+    content = process_image_placeholders(content, output_dir)
 
     html = md_to_html(content)
     html, footnote_html = extract_links_as_footnotes(html)

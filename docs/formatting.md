@@ -101,6 +101,65 @@ python3 scripts/format/publish.py --input article.md --theme newspaper --title "
 
 排版格式要求：段与段之间空一行，保持简洁干净。分割线（如咖啡色主题的分割线）可以保留，增强阅读节奏感。
 
+## 配图能力（v7.0 新增）
+
+本Skill内置 AI 配图能力，基于 Google Gemini 3 Pro Image (Nano Banana Pro) API。
+
+### 使用方式
+
+**方式一：手动生成配图**
+
+```bash
+# 生成配图（默认2K分辨率，适合公众号）
+python3 scripts/format/generate_image.py --prompt "纳豆激酶1062人临床数据信息图" --filename "images/clinical-data.png"
+
+# 指定配图风格
+python3 scripts/format/generate_image.py --prompt "日生研品牌历程" --filename "images/brand.png" --style brand
+
+# 生成封面图
+python3 scripts/format/generate_image.py --prompt "纳豆激酶行业深度分析" --filename "images/cover.png" --style cover
+```
+
+**方式二：文章中插入占位符，排版时自动生成**
+
+在 Markdown 文章中插入占位符：
+```markdown
+## 1062人临床试验：最硬核的成绩单
+
+<!-- IMAGE(science): 1062人临床试验数据可视化，展示斑块改善率66.5%-95.4% -->
+
+这是迄今纳豆激酶领域最大规模的临床试验...
+```
+
+format.py 排版时会自动检测占位符，调用 generate_image.py 生成图片并插入文章。
+
+占位符格式：
+- `<!-- IMAGE: 图片描述 -->` — 自动检测风格
+- `<!-- IMAGE(science): 描述 -->` — 科学信任风格（薄荷绿，数据可视化）
+- `<!-- IMAGE(brand): 描述 -->` — 品牌故事风格（咖啡棕，温暖专业）
+- `<!-- IMAGE(health): 描述 -->` — 健康科普风格（清新绿，科普插画）
+- `<!-- IMAGE(business): 描述 -->` — 招商转化风格（日落琥珀，商业有力）
+- `<!-- IMAGE(cover): 描述 -->` — 封面图风格（900×383比例）
+
+### 前置条件
+
+需要设置 `GEMINI_API_KEY` 环境变量：
+```bash
+export GEMINI_API_KEY=your_api_key
+```
+
+如果未设置 GEMINI_API_KEY，占位符会保留为文字提示（不阻断排版流程）。
+
+### 依赖安装
+
+```bash
+pip3 install google-genai pillow
+# 或使用 uv（自动管理依赖）
+uv run scripts/format/generate_image.py --help
+```
+
+---
+
 ## 微信公众号排版技术要点
 
 - 所有样式必须内联（`style="..."`），微信编辑器会过滤 `<style>` 标签和 CSS class
@@ -108,3 +167,4 @@ python3 scripts/format/publish.py --input article.md --theme newspaper --title "
 - 图片必须先上传到微信素材库获取 media_id
 - 封面图尺寸建议 900×383 或 2.35:1 比例
 - format.py 已自动处理所有内联化，无需手动调整
+- 配图生成的图片会在 publish.py 推送时自动上传到微信CDN

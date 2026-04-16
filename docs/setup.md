@@ -1,6 +1,8 @@
 # 首次安装配置指南
 
 > 本文档指导新用户从零开始配置日生研NSKSD内容创作Skill。
+>
+> **首次使用？** 强烈建议先阅读 [新手引导（onboarding.md）](onboarding.md)，手把手教你配置飞书机器人和微信公众号。
 
 ## 前置依赖
 
@@ -11,6 +13,8 @@
 | **Python 3** | 排版和发布脚本 | `brew install python3` (Mac) 或 [python.org](https://python.org) |
 | **markdown** (Python包) | Markdown转HTML | `pip3 install markdown` |
 | **requests** (Python包) | HTTP请求 | `pip3 install requests` |
+| **python-dotenv** (Python包) | 环境变量加载 | `pip3 install python-dotenv` |
+| **google-genai** (Python包,可选) | AI配图 | `pip3 install google-genai pillow` |
 
 ## 快速安装
 

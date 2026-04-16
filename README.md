@@ -191,7 +191,7 @@ nsksd-content-skill/
 
 ## 更新日志
 
-当前版本：**v6.0**（2026-04-15）
+当前版本：**v7.1**（2026-04-17）
 
 完整更新历史见 [CHANGELOG.md](CHANGELOG.md)
 

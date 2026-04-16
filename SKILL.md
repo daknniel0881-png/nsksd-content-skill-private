@@ -579,14 +579,75 @@ python3 scripts/format/publish.py --dir /tmp/wechat-format/{文件名}/ --title 
 
 ## 飞书卡片推送系统
 
-每天10点自动推送两张飞书卡片：
-1. **📋 清单卡**（绿色）：选题概览 + 飞书云文档链接
-2. **📝 多选卡**（蓝色）：勾选选题 → 提交 → 自动写稿排版推送草稿箱 → 卡片变灰
+### 整体流程
 
-核心流程：`选题生成 → 飞书云文档 → 清单卡+多选卡 → 用户选择 → Claude写稿 → 排版 → 推送草稿箱`
+```
+选题生成 → 飞书云文档 → 清单卡+多选卡 → 用户勾选提交
+  → WSClient收到card.action.trigger回调 → 解析form_value
+  → Claude CLI写稿 → format.py排版 → publish.py推送草稿箱
+  → 发送完成通知卡片
+```
 
-> 详细说明见 [docs/feishu-cards.md](docs/feishu-cards.md)
-> 飞书卡片完整操作手册见 [docs/feishu-cards-step-by-step.md](docs/feishu-cards-step-by-step.md)
+### 两张卡片
+
+| 卡片 | schema | 颜色 | 用途 |
+|------|--------|------|------|
+| 📋 清单卡 | 1.0 | 绿色 | 选题概览 + 飞书云文档链接（只读，不交互） |
+| 📝 多选卡 | 2.0 | 蓝色 | form容器 + checker勾选 + 提交按钮（交互） |
+
+### 服务启动方式
+
+```bash
+cd scripts/server
+source .env    # 加载飞书凭据
+bun run index.ts
+```
+
+启动后本地 HTTP 管理端口（默认 9800）：
+
+| 端点 | 方法 | 用途 | 示例 |
+|------|------|------|------|
+| `/health` | GET | 健康检查 | `curl http://localhost:9800/health` |
+| `/status` | GET | 查看当前选题和生成状态 | `curl http://localhost:9800/status` |
+| `/register-topics` | POST | 注册选题（定时脚本调用） | `curl -X POST localhost:9800/register-topics -H 'Content-Type: application/json' -d '{"topics":[...]}'` |
+| `/set-doc-url` | POST | 设置飞书云文档URL | `curl -X POST localhost:9800/set-doc-url -d '{"doc_url":"https://..."}'` |
+| `/send-summary-card` | POST | 发送清单卡 | `curl -X POST localhost:9800/send-summary-card -H 'Content-Type: application/json' -d '{}'` |
+| `/send-card` | POST | 发送多选卡 | `curl -X POST localhost:9800/send-card -H 'Content-Type: application/json' -d '{}'` |
+
+### 多选卡的回调机制（关键）
+
+1. 用户在飞书中打开多选卡，勾选选题（checker组件），点击「提交选题」按钮
+2. 飞书通过 WSClient 长连接推送 `card.action.trigger` 事件到服务端
+3. 回调数据结构：
+```json
+{
+  "event": {
+    "operator": { "open_id": "ou_xxx" },
+    "action": {
+      "form_value": {
+        "topic_1": true,
+        "topic_3": true,
+        "topic_5": true,
+        "submit_btn": { "tag": "button" }
+      }
+    }
+  }
+}
+```
+4. 服务端解析 `form_value`：提取 `topic_` 开头且值为 `true` 的键 → 得到选题编号
+5. 异步调用 `handleTopicSelection()` → Claude CLI 写稿 → format.py 排版 → publish.py 推送
+6. 返回 toast + 更新卡片为变灰状态（header template: grey, 按钮/checker disabled）
+
+**关键约束**：
+- 回调必须在 **3秒内** 返回响应，否则飞书超时。所以写稿流程放在异步函数中，不阻塞回调
+- checker 在 form 内时**不配 behaviors**（否则触发飞书 200672 错误），只靠 form 提交按钮触发回调
+- checker 的 name 格式固定为 `topic_{index}`，值为布尔型（true = 已勾选）
+
+### 备选方案：文本消息触发
+
+用户也可以在飞书聊天中直接回复编号（如 `1 3 5` 或 `1、3、5`），服务端通过 `im.message.receive_v1` 事件解析编号并触发写稿。
+
+> 卡片JSON完整结构和更多发送方式见 [docs/feishu-cards-step-by-step.md](docs/feishu-cards-step-by-step.md)
 
 ---
 
@@ -594,8 +655,83 @@ python3 scripts/format/publish.py --dir /tmp/wechat-format/{文件名}/ --title 
 
 本Skill内置完整的公众号排版系统（31个主题），全部自包含，不依赖外部Skill。
 
-> 排版系统详细说明见 [docs/formatting.md](docs/formatting.md)
-> 推送草稿箱完整操作手册见 [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md)
+### 完整操作步骤（每一步怎么做的）
+
+**步骤1：写完文章保存为 Markdown 文件**
+```bash
+# 文章保存为 .md 文件（第一行是 # 标题）
+# 如果需要AI配图，在文章中插入占位符：
+# <!-- IMAGE(science): 图片描述 -->
+# 风格：science / brand / health / business / cover
+```
+
+**步骤2：排版（Markdown → 微信兼容HTML）**
+```bash
+python3 scripts/format/format.py --input article.md --theme mint-fresh --no-open
+# 输出目录：/tmp/wechat-format/{文件stem}/
+# 生成文件：
+#   article.html  — 全内联样式HTML（微信不支持<style>标签，所有样式必须内联）
+#   preview.html  — 预览页（带「复制到微信」按钮，可在浏览器中预览效果）
+#   images/       — 如果有配图占位符且设了GEMINI_API_KEY，生成的图片在这里
+```
+
+**步骤3：推送到公众号草稿箱**
+```bash
+# 方式一：从排版输出目录推送（推荐）
+python3 scripts/format/publish.py \
+  --dir /tmp/wechat-format/{文件stem}/ \
+  --title "文章标题" \
+  --cover assets/default-cover.jpg
+
+# 方式二：从Markdown一步到位（自动排版+推送）
+python3 scripts/format/publish.py \
+  --input article.md \
+  --theme mint-fresh \
+  --title "文章标题" \
+  --cover assets/default-cover.jpg
+```
+
+**步骤4：验证推送结果**
+```
+推送成功会输出：
+  发布成功!
+  草稿 media_id: RTt8Y-U45B92SLFlt9IpKE4Z...
+  → 请到微信公众号后台 → 草稿箱 查看和发布
+```
+
+### 关键踩坑记录
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| `错误: 微信要求必须有封面图` | publish.py 必须有 `--cover` 参数 | 用 `assets/default-cover.jpg` 或自定义封面 |
+| `错误: 40164 ip not in whitelist` | 微信IP白名单未配置 | 到公众号后台→基本配置→IP白名单添加本机IP |
+| `错误: 40001 invalid credential` | AppID/AppSecret 错误 | 检查 config.json 或 .env 中的微信凭据 |
+| 排版后样式丢失 | 用了 `<style>` 标签 | format.py 已处理，所有样式内联，无需手动调整 |
+| 图片占位符没生成图片 | 未设置 GEMINI_API_KEY | 设置环境变量，或者不设也不影响排版（降级为文字提示） |
+
+### publish.py 内部执行流程
+
+```
+1. 读取 config.json 获取微信 AppID/AppSecret
+2. 调用微信API获取 access_token（有效期7200秒）
+3. 扫描 article.html 中的本地图片 → 逐个上传到微信CDN → 替换为微信URL
+4. 上传封面图 → 获取 thumb_media_id
+5. 调用「新建草稿」API → 推送到草稿箱 → 返回 media_id
+```
+
+### format.py 参数速查
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--input` | Markdown文件路径 | 必填 |
+| `--theme` | 主题名（31个可选） | mint-fresh |
+| `--output` | 输出目录 | /tmp/wechat-format/ |
+| `--no-open` | 不自动打开浏览器 | 建议加上 |
+| `--gallery` | 主题画廊模式，预览多个主题 | - |
+| `--format` | 输出格式：wechat/html/plain | wechat |
+
+> 排版系统完整说明见 [docs/formatting.md](docs/formatting.md)
+> 推送草稿箱完整手册见 [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md)
 
 ---
 

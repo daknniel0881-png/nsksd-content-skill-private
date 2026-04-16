@@ -1,5 +1,36 @@
 # 更新日志
 
+## v7.1（2026-04-17）
+
+**全流程测试通过 + 操作步骤内联 SKILL.md + 本地Skill同步**
+
+### 全流程测试验证
+- 测试环境：macOS arm64, Python 3.9.6, Bun 1.3.10, Claude Code 2.1.109
+- format.py 排版：✅ mint-fresh 主题，生成 article.html（9.7KB）+ preview.html（10.4KB）
+- IMAGE 占位符：✅ 无 GEMINI_API_KEY 时优雅降级为文字提示，不阻断流程
+- publish.py dry-run：✅ access_token 获取成功，封面图上传成功
+- publish.py 真推送：✅ 草稿 media_id 获取成功，文章进入公众号草稿箱
+- 飞书服务 WSClient：✅ 长连接建立，10个选题已注册
+- 飞书清单卡：✅ 发送成功（schema 1.0，绿色）
+- 飞书多选卡：✅ 发送成功（schema 2.0，蓝色，form+checker+submit）
+- Claude CLI 写稿：✅ 直接输出规范 Markdown，无多余对话内容
+
+### SKILL.md 操作步骤内联
+- 「飞书卡片推送系统」新增：服务启动命令、6个HTTP端点表、多选卡回调机制详解（form_value格式、3秒超时约束、checker命名规则、卡片变灰实现）、文本消息备选方案
+- 「公众号排版与发布」新增：4步完整操作流程（写文章→排版→推送→验证）、踩坑记录表（5个常见错误及解决方案）、publish.py内部执行流程、format.py参数速查表
+- 第四步推送命令补充 `--cover` 封面图参数（必须项）和两种推送方式
+- 第三步排版命令补充输出路径说明和 `--no-open` 参数
+
+### 踩坑修复
+- publish.py 必须指定 `--cover` 封面图，不指定报错退出 → SKILL.md 已补充说明
+- format.py 输出路径为 `/tmp/wechat-format/{文件stem}/` → SKILL.md 已补充说明
+
+### 新增文档
+- `docs/test-run-log.md` — 全流程测试记录，含每个环节的具体命令、输出、踩坑
+
+### 本地Skill同步
+- 同步 `/tmp/nsksd-content-skill/` → `~/.claude/skills/nsksd-content/`
+
 ## v7.0（2026-04-17）
 
 **引导式4步工作流 + AI配图 + 傻瓜级文档**

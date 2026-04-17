@@ -75,8 +75,9 @@ def get_access_token():
         errmsg = data.get("errmsg", "未知错误")
         print(f"错误: 获取 access_token 失败 (errcode={errcode}: {errmsg})")
         if errcode == 40164:
-            print("  → IP 不在白名单中，请到公众号后台添加当前 IP")
-            print("  → 推荐配置: 38.90.16.0/24")
+            print("  → IP 不在白名单中，请到公众号后台添加当前出口 IP")
+            print("  → 查询当前 IP: curl ifconfig.me")
+            print("  → 添加位置: 公众号后台 → 设置与开发 → 基本配置 → IP白名单")
         elif errcode in (40001, 40125):
             print("  → AppSecret 无效，请检查配置")
         sys.exit(1)

@@ -19,7 +19,7 @@ const APP_ID = process.env.LARK_APP_ID || "";
 const APP_SECRET = process.env.LARK_APP_SECRET || "";
 const TARGET_OPEN_ID = process.env.TARGET_OPEN_ID || "";
 const SKILL_PATH = process.env.SKILL_PATH || "/tmp/nsksd-content-skill";
-const CHAT_ID = process.env.CHAT_ID || "oc_593f103b3d1f80ca34b728de58a31ac1";
+const CHAT_ID = process.env.CHAT_ID || "";  // 从 .env 配置，不设则通过 open_id 发私聊
 const FORMAT_SCRIPT = `${SKILL_PATH}/scripts/format/format.py`;
 const FORMAT_OUTPUT_DIR = process.env.FORMAT_OUTPUT_DIR || "/tmp/wechat-format";
 
@@ -82,11 +82,20 @@ const client = new Lark.Client({
   appType: Lark.AppType.SelfBuild,
 });
 
-async function sendText(chatId: string, text: string) {
+async function sendText(targetId: string, text: string, idType: "chat_id" | "open_id" = "chat_id") {
   await client.im.v1.message.create({
-    params: { receive_id_type: "chat_id" },
-    data: { receive_id: chatId, msg_type: "text", content: JSON.stringify({ text }) },
+    params: { receive_id_type: idType },
+    data: { receive_id: targetId, msg_type: "text", content: JSON.stringify({ text }) },
   });
+}
+
+/** 向 CHAT_ID（群聊）或 openId（私聊）发送文本消息 */
+async function sendTextAuto(openId: string, text: string) {
+  if (CHAT_ID) {
+    await sendTextAuto(openId, text, "chat_id");
+  } else {
+    await sendText(openId, text, "open_id");
+  }
 }
 
 async function sendCardToUser(openId: string, card: object) {
@@ -525,7 +534,7 @@ async function handleTopicSelection(openId: string, selectedValues: string[]) {
       const chunks = splitText(article, 4000);
       for (let i = 0; i < chunks.length; i++) {
         const prefix = i === 0 ? `【第${topic.index}篇】${topic.title}\n${"=".repeat(30)}\n\n` : "";
-        await sendText(CHAT_ID, prefix + chunks[i]);
+        await sendTextAuto(openId, prefix + chunks[i]);
       }
 
       // 第2步：排版
@@ -533,7 +542,7 @@ async function handleTopicSelection(openId: string, selectedValues: string[]) {
       const fmtResult = await formatArticle(article, topic);
 
       if (fmtResult.success) {
-        await sendText(CHAT_ID, `✅ 【第${topic.index}篇】排版完成 (${THEME_MAP[topic.line] || DEFAULT_THEME})`);
+        await sendTextAuto(openId, `✅ 【第${topic.index}篇】排版完成 (${THEME_MAP[topic.line] || DEFAULT_THEME})`);
       }
 
       // 第3步：推送到公众号草稿箱
@@ -546,9 +555,9 @@ async function handleTopicSelection(openId: string, selectedValues: string[]) {
         published = pubResult.success;
 
         if (published) {
-          await sendText(CHAT_ID, `📤 【第${topic.index}篇】已推送到公众号草稿箱`);
+          await sendTextAuto(openId, `📤 【第${topic.index}篇】已推送到公众号草稿箱`);
         } else {
-          await sendText(CHAT_ID, `⚠️ 【第${topic.index}篇】排版成功但推送草稿箱失败，请手动处理`);
+          await sendTextAuto(openId, `⚠️ 【第${topic.index}篇】排版成功但推送草稿箱失败，请手动处理`);
         }
       }
 

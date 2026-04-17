@@ -1,5 +1,64 @@
 # 更新日志
 
+## v7.3（2026-04-17）
+
+**傻瓜式自动化：Agent 自动获取凭据，用户零配置**
+
+### 核心理念升级
+- 从「教人手动获取 ID」→「Agent 自动获取，只在必要时问用户」
+- 飞书凭据全自动（App ID / App Secret / Open ID 从 lark-cli 提取）
+- 微信凭据问一次（无 CLI 工具，首次需用户提供）
+- IP 白名单半自动（Agent 查 IP，提醒用户加白名单）
+
+### 新增文件
+- `docs/credentials-auto-setup.md` — **Agent 专用**凭据自动配置指引，面向 AI 阅读的完整流程文档
+  - 自动化程度一览表（哪些能自动、哪些要问用户）
+  - lark-cli 检测 → 配置提取 → Open ID 解析 → Chat ID 搜索的完整命令
+  - 微信凭据获取话术模板
+  - 自动写入 .env / config.json 的代码模板
+  - 验证流程（飞书测试消息 + 微信 token 检查）
+  - 故障排查表
+- `scripts/setup-credentials.sh` — 一键交互式配置脚本（备选方案）
+  - 自动检测 lark-cli / bun / python3 依赖
+  - 自动从 lark-cli 配置文件提取飞书凭据
+  - 自动解析 Open ID
+  - 交互式输入微信凭据（仅需一次）
+  - 自动安装依赖
+  - 自动发送飞书测试消息 + 验证微信 token
+
+### SKILL.md 重写
+- 「凭据配置速查」→ 「凭据自动配置」：从130行人工教程压缩到50行自动化指引
+- 新增触发机制：Agent 检测到 `.env` 含占位符时自动读取 `docs/credentials-auto-setup.md` 执行配置
+- 文档索引新增 `credentials-auto-setup.md`，标记为「凭据未配置时 Agent 必读」
+
+---
+
+## v7.2（2026-04-17）
+
+**凭据零硬编码 + 动态配置指引**
+
+### 安全清理：移除所有硬编码凭据
+- `scripts/server/.env` 移除硬编码的飞书 App ID/Secret、Open ID、微信 App ID/Secret，恢复为模板占位符
+- `config.json` 移除硬编码的微信凭据、Obsidian 路径、作者名，恢复为模板
+- `scripts/server/index.ts` 移除硬编码 CHAT_ID（`oc_xxx`），改为从 `.env` 读取，不配置则自动通过 Open ID 发私聊
+- `scripts/format/publish.py` 移除硬编码 IP 网段提示，改为动态查询指引
+
+### 新增 SKILL.md「凭据配置速查」章节
+- 完整凭据一览表：列出所有需要配置的 ID/Secret 及其配置位置
+- 飞书 App ID / App Secret 获取方法（4步）
+- 飞书 Open ID 获取方法（4种方式：发消息、lark-cli、API、管理后台）
+- 飞书 Chat ID 获取方法（群聊场景，可选）
+- 微信 App ID / App Secret 获取方法
+- 微信 IP 白名单配置与验证方法
+- 配置文件填写示例和验证步骤
+
+### 代码改进
+- `index.ts` 新增 `sendTextAuto()` 函数，根据 CHAT_ID 是否配置自动选择群聊/私聊
+- `index.ts` `sendText()` 支持 `idType` 参数（`chat_id` / `open_id`）
+- `.env.example` 补充 CHAT_ID 配置项和获取方式说明
+
+---
+
 ## v7.1（2026-04-17）
 
 **全流程测试通过 + 操作步骤内联 SKILL.md + 本地Skill同步**

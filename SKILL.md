@@ -735,6 +735,62 @@ python3 scripts/format/publish.py \
 
 ---
 
+## 凭据自动配置（首次使用时 Agent 自动执行）
+
+> ⚠️ **铁律：所有凭据从配置文件读取，绝不硬编码到代码中。**
+> ⚠️ **原则：Agent 自动获取一切能自动获取的，只在必要时问用户。**
+
+### 自动化程度
+
+| 凭据 | Agent 自动获取？ | 获取方式 |
+|------|:---:|------|
+| 飞书 App ID | ✅ 自动 | `lark-cli config show` → `appId` |
+| 飞书 App Secret | ✅ 自动 | 读取 lark-cli 配置文件（路径从 `config show` 输出获取） |
+| 飞书 Open ID | ✅ 自动 | `lark-cli config show` → `users` 字段中解析 `ou_` 前缀 |
+| 飞书 Chat ID | ✅ 自动 | `lark-cli im +chat-search --query "群名" --as bot` |
+| 微信 App ID | ❌ 问用户一次 | 无 CLI 工具，用户从公众号后台获取 |
+| 微信 App Secret | ❌ 问用户一次 | 无 CLI 工具，用户从公众号后台获取 |
+| 微信 IP 白名单 | ⚠️ 半自动 | Agent 用 `curl ifconfig.me` 查出 IP，提醒用户到后台添加 |
+
+### Agent 首次配置执行流程
+
+> **读到此章节时，如果 `.env` 或 `config.json` 中的凭据是占位符（含 `your_` 或 `YOUR_`），
+> Agent 必须立即读取 [docs/credentials-auto-setup.md](docs/credentials-auto-setup.md) 并按流程自动配置。**
+> **不要让用户手动去获取 ID。**
+
+简要流程（完整步骤见 `docs/credentials-auto-setup.md`）：
+
+```
+1. which lark-cli           → 检查是否安装（未装则提醒用户 npm install -g @nicepkg/lark-cli）
+2. lark-cli config show     → 检查是否已配置飞书应用
+3. 解析输出自动提取 appId、appSecret、open_id
+4. 检查 config.json 是否已有微信凭据
+5. 如果没有 → 向用户要 微信 AppID + AppSecret + 作者名（这是唯一需要用户操作的）
+6. curl ifconfig.me          → 查出口 IP，提醒用户加白名单
+7. 自动写入 .env 和 config.json
+8. 自动安装依赖（bun install + pip3 install）
+9. 发送飞书测试消息验证
+10. curl 微信 API 验证 token
+```
+
+### 一键配置脚本（备选）
+
+如果 Agent 不方便逐步执行，也可以运行一键脚本（交互式，会自动提取飞书凭据、只问微信凭据）：
+```bash
+bash scripts/setup-credentials.sh
+```
+
+### 配置文件位置
+
+| 文件 | 作用 | 由谁写入 |
+|------|------|----------|
+| `scripts/server/.env` | 飞书 + 微信凭据 + 运行配置 | Agent 自动写入 |
+| `config.json` | 微信凭据 + 排版配置 | Agent 自动写入 |
+| `scripts/server/.env.example` | `.env` 模板（仅参考） | 随 Skill 分发 |
+| `config.json.example` | `config.json` 模板（仅参考） | 随 Skill 分发 |
+
+---
+
 ## 定时任务与环境配置
 
 - **Mac**：LaunchAgent plist，每天10:00触发
@@ -751,8 +807,9 @@ python3 scripts/format/publish.py \
 
 | 文档 | 内容 | 何时阅读 |
 |------|------|----------|
-| [docs/onboarding.md](docs/onboarding.md) | **新手引导**：飞书机器人配置 + 微信开放平台配置 | **首次使用必读** |
-| [docs/setup.md](docs/setup.md) | 安装配置、凭据获取、依赖检查 | 新机器首次使用时 |
+| [docs/credentials-auto-setup.md](docs/credentials-auto-setup.md) | **凭据自动配置（Agent 专用）**：自动获取飞书/微信凭据的完整指引 | **凭据未配置时 Agent 必读** |
+| [docs/onboarding.md](docs/onboarding.md) | 新手引导：飞书机器人创建 + 微信开放平台配置（人工操作参考） | 需要人工创建飞书应用时 |
+| [docs/setup.md](docs/setup.md) | 安装配置、依赖检查 | 新机器首次使用时 |
 | [docs/formatting.md](docs/formatting.md) | 排版系统、31个主题、配图能力、干净草稿要求 | 执行排版时 |
 | [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md) | **微信推送完整手册**：每一步脚本怎么写怎么设置 | 推送草稿箱时 |
 | [docs/feishu-cards.md](docs/feishu-cards.md) | 卡片设计、回调机制、WSClient服务 | 修改卡片或调试时 |

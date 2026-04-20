@@ -81,7 +81,16 @@ python3 scripts/format/publish.py upload-images \
 python3 scripts/compliance_check.py --html artifacts/<SID>/step5-article.html
 ```
 
-退出码 0 → 继续推送。非 0 → **拦截**,写 `artifacts/<SID>/step5-compliance-report.md`,通知主 Agent。
+**v8.4 合规扫描新增维度**：
+
+1. **功效违禁词**（治疗/治愈/根治/药/最/第一/脉管焕新 等）→ 命中即拦截
+2. **日本关键词**（`日本/日式/日系/东瀛/和风/中日/日企/日资/日货/日产`）→ 命中即拦截
+3. **数据无出处**：所有数字引用必须带来源 → 缺失即警告
+4. **招商敏感词**（月入XX万/躺赚/加盟费）→ 命中即拦截
+
+退出码 0 → 继续推送。非 0 → **拦截**,写 `artifacts/<SID>/step5-compliance-report.md`,通知主 Agent,回引导模式让用户改。
+
+**豁免场景**：若文案属于"产品包装文件 / 法律标签 / 学术论文原引"，通过 `--allow-japan-mention` 开关豁免日本关键词检查（谨慎使用，仅限内部/法务场景）。
 
 ### 步骤 F:推送草稿箱
 

@@ -1,9 +1,22 @@
 {
   "output_dir": "/tmp/wechat-format",
   "vault_root": "/path/to/your/obsidian/vault",
+  "default_mode": "auto",
+  "mode_override": null,
   "settings": {
     "default_theme": "mint-fresh",
-    "auto_open_browser": false
+    "auto_open_browser": false,
+    "image_count": {
+      "cover": 1,
+      "inline_min": 5,
+      "inline_max": 8
+    },
+    "daily_schedule": {
+      "enabled": true,
+      "hour": 10,
+      "minute": 0,
+      "auto_push_draft": true
+    }
   },
   "wechat": {
     "app_id": "YOUR_WECHAT_APP_ID",

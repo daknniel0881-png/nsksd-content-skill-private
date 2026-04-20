@@ -27,8 +27,26 @@ SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _resolve_mode(explicit: str | None) -> str:
+    """
+    v8.3: 若命令行未指定 --mode,则从 mode_manager 读取当前生效模式。
+    保持向后兼容:显式传 --mode 优先。
+    """
+    if explicit in ("auto", "guided"):
+        return explicit
+    try:
+        # 懒加载,避免循环依赖
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from mode_manager import get_effective_mode
+        return get_effective_mode()
+    except Exception as e:
+        print(f"[GUARD] mode_manager 不可用,回退 auto: {e}", file=sys.stderr)
+        return "auto"
+
+
 def new_session(mode: str) -> str:
     """创建新会话,返回 session_id"""
+    mode = _resolve_mode(mode)
     sid = datetime.now().strftime("%Y%m%d-%H%M%S")
     session_file = SESSIONS_DIR / f"{sid}.json"
     data = {
@@ -173,7 +191,9 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
 
     p_new = sub.add_parser("new-session")
-    p_new.add_argument("--mode", choices=["auto", "guided"], required=True)
+    # v8.3: --mode 改为可选,缺省从 config.json 读取
+    p_new.add_argument("--mode", choices=["auto", "guided"], default=None,
+                       help="未指定时从 config.json 读取(effective mode)")
 
     p_chk = sub.add_parser("check")
     p_chk.add_argument("--sid", required=True)

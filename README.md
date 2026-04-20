@@ -1,200 +1,211 @@
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂 Skill
+# nsksd-content-skill
 
-> 专为日生研生命科学（浙江）有限公司定制的 Claude Code Skill，覆盖从选题生成到公众号发布的完整内容生产工作流。
+> 日生研NSKSD纳豆激酶 · 自媒体内容工厂 Skill（v8.3）
+> 多 Agent 调度 · 模式持久化 · 定时触发 · 飞书闭环
 
-## 概述
+---
 
-本Skill将内容工厂的理念封装为**引导式4步工作流**，每一步都引导员工操作并等待确认，确保流程不中断。
+## 这个 Skill 解决什么问题
 
-**核心特点**：
-- 🎯 **招商导向**：所有内容围绕吸引美容院老板、养生馆老板、社区门店老板成为分销商
-- 🔬 **科学背书**：基于1062人临床试验、浙大RCT研究等硬核数据，用证据说话
-- ⚖️ **合规贯穿**：从选题到发布，全流程内置合规审查机制，确保不踩法律和平台红线
-- 📚 **知识库驱动**：内置77份完整知识库原文件，所有内容创作都有据可查
-- 🔄 **引导式流程**：每步完成后主动引导下一步，等待用户确认后才继续，不跳步
-- 🖼 **AI配图能力**：内置 Gemini 3 Pro Image 配图，排版时自动生成插图
-- 📖 **傻瓜级文档**：每个操作步骤都有详细手册，不管用什么模型都能跑通
+日生研（NSKSD 纳豆激酶中国总代理）需要持续产出公众号内容，吸引美容院/养生馆/社区门店老板成为分销商。
 
-## 安装
+传统做法：人工选题→写稿→配图→排版→推送，5-6 小时/篇，还容易撞题、踩合规雷。
 
-### 方式一：从GitHub克隆（推荐，方便后续更新）
-
-```bash
-cd ~/.claude/skills/
-git clone https://github.com/daknniel0881-png/nsksd-content-skill-private.git nsksd-content
-cd nsksd-content
-
-# 运行安装脚本（自动检查依赖、创建配置文件、安装服务端依赖）
-bash scripts/setup.sh
-
-# 编辑配置文件，填入你的凭据
-vim scripts/server/.env
-vim config.json
-```
-
-### 方式二：从zip解压
-
-```bash
-unzip nsksd-content-skill.zip -d ~/.claude/skills/nsksd-content
-cd ~/.claude/skills/nsksd-content
-bash scripts/setup.sh
-```
-
-> **首次使用？** 先阅读 [新手引导](docs/onboarding.md)，手把手教你配置飞书机器人和微信公众号。
-> 详细的凭据获取和配置步骤见 [docs/setup.md](docs/setup.md)
-
-安装后重启 Claude Code 即可使用。
-
-## 使用方法
-
-### 引导式4步流程
+本 Skill 的做法：
 
 ```
-第一步：选题生成 → AI推荐10-15个选题 → 🛑 等你选择
-第二步：标题+大纲 → 为选中选题生成标题和大纲 → 🛑 等你确认
-第三步：撰写+排版 → 写全文+排版+云文档预审 → 🛑 等你审核
-第四步：推送草稿箱 → 你确认后推送到公众号 → 完成！
+主命令 /nsksd  或  每天 10:00 定时触发
+  ↓
+5 个子 Agent 串行接力：选题 → 标题大纲 → 全文 → 配图 → 排版推送
+  ↓
+guard.py 硬门控 + 30 天滚动去重 + 合规硬扫
+  ↓
+飞书多选卡 + 云文档预审 + 长连接回调闭环
+  ↓
+草稿箱待发 ≈ 30 分钟/篇（auto）或 按需打磨（guided）
 ```
 
-**每一步都会引导你操作，等你确认后才继续。不会跳步。**
+---
 
-### 命令
+## v8.3 新能力（本版）
 
-| 命令 | 说明 |
+| 能力 | 说明 |
 |------|------|
-| `/nsksd` | 从第一步开始完整引导式流程 |
-| `/nsksd 选题` | 仅执行第一步（选题生成） |
-| `/nsksd 标题 <选题>` | 从第二步开始（已有选题） |
-| `/nsksd 文案 <选题>` | 从第三步开始（已有选题和标题） |
-| `/nsksd 排版 <文案>` | 仅执行第四步（排版推送） |
-| `/nsksd 复审 <文案>` | 独立合规审查（20项检查） |
+| **单入口 `/nsksd`** | 取代双入口，启动时自动按保存模式跑 |
+| **模式持久化** | 首次选模式后写入 `config.json`，之后不再问 |
+| **口头切换** | "切换到引导模式 / 全自动" → 持久化切换并即刻生效 |
+| **10 点定时 Step 1** | LaunchAgent 每天 10:00 触发，只跑选题+云文档+推卡 |
+| **配图 5-8 张** | 封面 1 张 + 内文 5 张起步，上限 8 张（原 2-3 张） |
 
-### 典型使用流程
+---
+
+## 快速开始
+
+### 1. 安装
+
+```bash
+git clone https://github.com/daknniel0881-png/nsksd-content-skill-private.git \
+  ~/.claude/skills/nsksd-content
+cd ~/.claude/skills/nsksd-content
+
+# 拷贝配置模板
+cp config.json.example config.json
+cp scripts/server/.env.example scripts/server/.env
+# 编辑 .env 填入飞书 LARK_APP_ID / LARK_APP_SECRET / TARGET_OPEN_ID
+```
+
+### 2. 设默认模式（可选，默认 auto）
+
+```bash
+python3 scripts/mode_manager.py set --mode auto --as-default
+# 或：--mode guided
+```
+
+### 3. 启动飞书长连接监听
+
+```bash
+cd scripts/server && bun install && bun run index.ts
+```
+
+### 4. 主命令
+
+在 Claude Code 里说：
 
 ```
-1. /nsksd                         ← 开始，AI生成选题
-2. "选 1、3、5"                    ← 你选择3篇
-3. AI生成标题和大纲               ← 你确认或修改
-4. "确认"                         ← AI写全文+排版+云文档
-5. 在飞书云文档中预审              ← 你检查内容
-6. "推送"                         ← AI推送到公众号草稿箱
+/nsksd
 ```
 
-## 文件结构
+主 Agent 会：
+1. 读当前模式（`auto` 或 `guided`）
+2. 告知用户"当前模式：xxx，如需切换说'切换到 xxx 模式'"
+3. 创建会话 → 派发子 Agent 按模式跑
+
+### 5. 定时任务（每天 10:00）
+
+```bash
+# 编辑 plist 中的路径
+vim scripts/com.nsksd.daily-topics.plist
+# 替换三处 /tmp/nsksd-content-skill 为你的实际路径
+
+cp scripts/com.nsksd.daily-topics.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.nsksd.daily-topics.plist
+
+# 验证
+launchctl list | grep nsksd
+```
+
+10:00 触发后会自动：
+- 生成 10 选题 → 创建飞书云文档 A → 推多选卡
+- 等用户勾选后，按保存的 `effective_mode` 继续走
+
+---
+
+## 模式切换（口头即刻生效）
+
+| 用户说 | 实际调用 | 效果 |
+|--------|---------|------|
+| "切换到引导模式" | `mode_manager.py set --mode guided` | 本次 + 默认都切 guided |
+| "切换到全自动" | `mode_manager.py set --mode auto` | 本次 + 默认都切 auto |
+| "恢复默认" | `mode_manager.py reset` | 恢复 auto |
+| "当前什么模式？" | `mode_manager.py show` | 返回当前+默认 |
+
+---
+
+## 两种模式差异
+
+### `auto`（全自动，默认）
+
+一张多选卡 → 勾选 → 全自动到草稿箱 → 飞书通知。
+**适合**：熟手、定时任务、追求效率。
+
+### `guided`（引导打磨）
+
+每步停下发反馈卡，用户写意见 → 主 Agent 带 feedback 重跑该步（最多 3 次）。
+**适合**：新员工、需要逐步把控内容、打磨精品。
+
+---
+
+## 架构一览
 
 ```
-nsksd-content-skill/
-├── SKILL.md                    # Skill主文件（AI读取的内容创作规范，497行）
-├── README.md                   # 本说明文档
-├── CHANGELOG.md                # 版本更新日志
-├── config.json.example         # 配置模板（微信公众号凭据）
-├── docs/                       # 详细文档
-│   ├── setup.md                # 首次安装配置指南
-│   ├── formatting.md           # 排版系统与发布流程
-│   ├── feishu-cards.md         # 飞书卡片系统（双卡片+回调）
-│   └── scheduling.md           # 定时任务配置（Mac/Windows）
-├── references/                 # 精华提炼参考文档
-│   ├── knowledge-base.md       # 知识库核心素材（临床数据/专家背书/企业历程）
-│   ├── topic-library.md        # 选题库（12个已验证选题+8篇大会预热+7种标题公式）
-│   ├── compliance.md           # 完整合规审查机制（法规+平台规则+处罚案例）
-│   └── compliance-checklist.md # 20项合规检查清单
-├── knowledge/                  # 完整知识库原文件（77份）
-│   ├── 核心文档/               # 7份：企业介绍/百问百答/专家建议/专家共识/临床册子
-│   ├── 2025新闻/               # 20份：2025-2026年央媒报道
-│   ├── 2025之前/               # 49份：2019-2024年历史新闻报道
-│   └── FFC2026大会预热宣传策划.md
-├── themes/                     # 31个公众号排版主题（JSON格式）
-├── templates/                  # HTML模板（预览页、主题画廊）
-├── assets/                     # 静态资源（默认封面图等）
+┌──────────────────────────────────────────┐
+│  入口：/nsksd（单入口+模式持久化）       │
+│        或 LaunchAgent 10:00 → Step 1     │
+└──────────────────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│  master-orchestrator（主调度，去人名化） │
+│  - 读 mode_manager 得模式               │
+│  - guard.py new-session 建会话          │
+│  - 串行派发 5 子 Agent                  │
+└──────────────────────────────────────────┘
+              ↓ 严格串行，guard 退出码门控
+┌──────────────────────────────────────────┐
+│  topic-scout → title-outliner →         │
+│  article-writer → image-designer →      │
+│  format-publisher                        │
+└──────────────────────────────────────────┘
+              ↓
+┌──────────────────────────────────────────┐
+│  飞书闭环：云文档 A/B/C + 多选卡/反馈卡  │
+│  + 长连接 WSClient 回调 + 推送草稿箱     │
+└──────────────────────────────────────────┘
+```
+
+---
+
+## 目录结构
+
+```
+nsksd-content/
+├── SKILL.md                    # Skill 主入口（单入口 + 模式说明）
+├── README.md                   # 本文档
+├── CHANGELOG.md                # 版本日志
+├── config.json.example         # 配置模板（含 default_mode / image_count）
+├── agents/                     # 6 个 Agent 提示词
+│   ├── master-orchestrator.md
+│   ├── topic-scout.md
+│   ├── title-outliner.md
+│   ├── article-writer.md
+│   ├── image-designer.md       # v8.3：封面 1 + 内文 5-8
+│   └── format-publisher.md
 ├── scripts/
-│   ├── setup.sh                # 一键安装配置脚本
-│   ├── run_nsksd_daily.sh      # 每日定时执行脚本
-│   ├── com.nsksd.daily-topics.plist  # Mac LaunchAgent 定时任务
-│   ├── nsksd-daily-topics-task.xml   # Windows Task Scheduler 定时任务
-│   ├── format/
-│   │   ├── format.py           # Markdown → HTML 排版（31个主题）
-│   │   └── publish.py          # HTML → 微信公众号草稿箱
-│   └── server/
-│       ├── index.ts            # 飞书WSClient长连接服务
-│       ├── .env.example        # 环境变量模板
-│       └── package.json        # Bun依赖
-└── logs/                       # 运行日志（已gitignore）
+│   ├── mode_manager.py         # v8.3 新增：模式持久化
+│   ├── guard.py                # 流程硬门控
+│   ├── topic_history.py        # 30 天去重
+│   ├── run_nsksd_daily.sh      # v8.3：只跑 Step 1
+│   ├── com.nsksd.daily-topics.plist  # macOS LaunchAgent
+│   ├── interactive/
+│   │   └── docs_publisher.py   # 云文档 A/B/C
+│   └── server/                 # 飞书 WSClient (bun+TS)
+├── references/                 # 长文参考（子 Agent 自读，主 Agent 禁读）
+│   ├── science-popular-style.md
+│   ├── themes-curated.md
+│   ├── compliance.md
+│   ├── knowledge-base.md
+│   └── topic-library.md
+├── knowledge/                  # 原文知识库（77 份）
+├── themes/                     # 排版主题（10 精选 + 21 兜底）
+├── templates/                  # 文章/图片模板
+├── sessions/                   # 会话状态（SID.json）
+├── artifacts/                  # 每步产物
+└── logs/                       # 去重指纹 + 运行日志
 ```
 
-## 合规审查机制
+---
 
-本Skill内置了完整的合规审查体系，**贯穿内容生产全流程**：
+## 为什么这么设计
 
-### 合规贯穿四个阶段
+1. **主 Agent 去人名化** → 客户侧 Main Agent 可以直接接管，不绑定任何运营个人
+2. **5 子 Agent 串行 + guard 门控** → 避免并行乱序，每步都有明确的 artifact 落盘
+3. **模式持久化** → 同一个运营基本只用一种模式，每次问打断心流
+4. **定时只跑 Step 1** → 10 点人不在场，选题备好等勾选比直接跑到草稿更安全
+5. **30 天指纹去重** → 公众号最怕撞题，三维指纹（title+angle+data）防撞
+6. **云文档 A/B/C** → 飞书云文档留痕 + 评论 + 移动端可审，比 markdown 导出友好
+7. **合规硬扫** → 保健品赛道合规红线高，format-publisher 内置拦截
 
-| 阶段 | 合规动作 | 目的 |
-|------|----------|------|
-| 选题（阶段一） | 5项选题合规预检 + 安全分级（🟢🟡🔴） | 从源头淘汰高风险选题 |
-| 标题（阶段二） | 5项标题合规检查 | 标题是平台审核第一道关 |
-| 撰写（阶段四） | 7条写作合规铁律 + 实时禁用词排查 | 写作过程中不踩线 |
-| 复审（阶段五） | 20项完整检查清单 + 合规评分 | 发布前最终把关 |
+---
 
-### 法规依据
+## License
 
-本Skill的合规标准基于以下法律法规和平台规则（均已交叉验证）：
-
-**国家法律法规**：
-- 《中华人民共和国广告法》第9/17/18条
-- 《中华人民共和国食品安全法》第71/73条
-- 《食品安全法实施条例》第38条
-- 四部门《关于规范自媒体医疗科普行为的通知》（2025年）
-- 市场监管总局2026年3月食品广告专项整治
-
-**平台规则**：
-- 微信公众平台运营规范（健康类内容/外链管控）
-- 小红书《广告违禁词规范》《内容审核规范》
-- 抖音《健康内容管理规范》《广告审核规范》
-
-### 核心红线
-
-> ⚠️ **纳豆激酶是食品，不是药品**。这是所有内容创作的第一前提。
-
-1. 不得宣传治疗/治愈/预防疾病的功效
-2. 不得使用绝对化用语（最/第一/唯一/100%）
-3. 不得虚构或篡改临床数据
-4. 不得冒用或虚构专家身份
-5. 不得以学术论文名义做商业宣传
-
-## 内容策略
-
-### 四条内容线（配比）
-
-| 内容线 | 占比 | 目的 | 典型选题 |
-|--------|------|------|----------|
-| 科学信任 | 40% | 用临床数据建立信任 | 1062人临床解读、浙大RCT报告 |
-| 健康科普 | 30% | 吸引泛健康人群 | 血管健康科普、认知障碍预防 |
-| 品牌故事 | 15% | 打品牌厚度 | 日生研15年历程、行业净化者 |
-| 招商转化 | 15% | 精准招商 | 门店选品方法论、合作伙伴故事 |
-
-### 写作原则
-
-- **村口大爷原则**：所有内容必须让没有专业背景的人也能看懂
-- **结论先行**：先给判断，再展开论据
-- **口语化为王**：像朋友聊天，不像AI写报告
-- **标题优先**：宁可花1小时改标题也不花1小时改内文
-
-## 知识库资产
-
-| 类别 | 核心素材 | 杀伤力 |
-|------|----------|--------|
-| 临床数据 | 1062人大规模临床试验（迄今最大） | ⭐⭐⭐⭐⭐ |
-| 学术研究 | 浙大RCT：认知衰退风险降低约65% | ⭐⭐⭐⭐⭐ |
-| 专家背书 | 30余位专家、3家学术机构联合建议 | ⭐⭐⭐⭐ |
-| 媒体报道 | 人民日报、新华社、光明网等央媒 | ⭐⭐⭐⭐ |
-| 安全认证 | EFSA 2017年认证安全 | ⭐⭐⭐ |
-| 品牌历程 | 15年深耕纳豆激酶领域 | ⭐⭐⭐ |
-
-## 更新日志
-
-当前版本：**v7.1**（2026-04-17）
-
-完整更新历史见 [CHANGELOG.md](CHANGELOG.md)
-
-## 许可
-
-本Skill为日生研生命科学（浙江）有限公司专属定制，仅供授权使用。
+私有仓库，仅供日生研项目交付使用。

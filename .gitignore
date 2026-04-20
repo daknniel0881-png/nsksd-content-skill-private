@@ -23,3 +23,4 @@ node_modules/
 # 运行时会话与产物（Skill 运行时生成，不入库）
 scripts/interactive/sessions/
 artifacts/
+__pycache__/

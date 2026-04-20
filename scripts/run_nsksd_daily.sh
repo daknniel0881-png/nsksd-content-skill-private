@@ -355,7 +355,7 @@ for i in range(0, len(blocks), 50):
 print(f"文档内容写入完成，共 {len(blocks)} 个blocks")
 PYEOF2
 
-  # 设置文档权限（让曲率可以访问）
+  # 设置文档权限（让 TARGET_OPEN_ID 用户可以访问）
   curl -s -X POST "https://open.feishu.cn/open-apis/drive/v1/permissions/${doc_id}/members?type=docx" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $token" \

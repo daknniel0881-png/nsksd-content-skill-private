@@ -1,9 +1,9 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。涵盖从选题生成→标题大纲确认→内容撰写排版→推送发布的完整引导式工作流。即使用户只说"帮日生研写篇文章"或"出几个纳豆激酶的选题"，也应触发此Skill。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（v8.2）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。提供 /nsksd-auto（全自动）与 /nsksd-guided（引导式）双入口，基于 5 个串行子 Agent + guard.py 硬校验门控 + 30 天滚动去重 + 飞书卡片长连接回调的多 Agent 调度架构。即使用户只说"帮日生研写篇文章"或"出几个纳豆激酶的选题"，也应触发此 Skill。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（v8.2）
 
 > 品牌：日生研生命科学（浙江）有限公司
 > 产品：NSKSD纳豆激酶（日本生物科学研究所生产，日生研为中国总代理）
@@ -12,529 +12,282 @@ description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill。当用户提
 
 ---
 
-## 引导式工作流（核心流程）
+## v8.2 核心升级
 
-> ⚠️ **铁律：流程牵着人走，不是人找流程。**
-> 每一步完成后，AI 必须主动告诉用户下一步该做什么，并等待用户确认后才能继续。
-> **禁止跳步。禁止一口气跑完全流程。** 每步都必须有用户交互。
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  第一步：选题生成                                                │
-│  AI 生成 10-15 个选题（S/A/B分级）                               │
-│  → 推荐 S级选 1-2个，A级选 1-2个，建议至少选 3 篇               │
-│  → 🛑 等待用户回复：选择哪几个选题（如"选 1、3、5"）             │
-├─────────────────────────────────────────────────────────────────┤
-│  第二步：标题 + 大纲生成                                         │
-│  为用户选中的每个选题生成 5 个标题变体 + 完整大纲                  │
-│  附带五维评分和合规评估                                           │
-│  → 🛑 等待用户回复：确认标题和大纲是否OK / 提出修改意见           │
-├─────────────────────────────────────────────────────────────────┤
-│  第三步：内容撰写 + 排版 + 云文档预审                             │
-│  基于确认的标题和大纲写全文 → 排版 → 写入飞书云文档                │
-│  （可选）调用配图能力为文章生成插图                                │
-│  → 🛑 等待用户在飞书云文档中预审 → 回复"确认"或修改意见           │
-├─────────────────────────────────────────────────────────────────┤
-│  第四步：推送公众号草稿箱                                         │
-│  用户确认后 → 排版HTML → 上传图片 → 推送草稿箱                    │
-│  → 发送飞书通知卡片（含草稿箱链接）                               │
-│  → 🛑 流程完成，等待用户在公众号后台最终发布                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 使用方式
-
-用户可以用以下方式触发：
-- `/nsksd` — 从第一步开始完整流程
-- `/nsksd 选题` — 仅执行第一步
-- `/nsksd 标题 <选题>` — 从第二步开始（已有选题）
-- `/nsksd 文案 <选题>` — 从第三步开始（已有选题和标题）
-- `/nsksd 排版 <文案>` — 仅执行第四步
-- `/nsksd 复审 <文案>` — 独立合规审查（不在主流程内）
-- `/nsksd 合规检查 <文案>` — 同复审
-
-无子命令时默认从第一步开始。
-
-> ⚠️ **合规贯穿全流程**：合规不是"写完再查"，而是"选题就开始考虑"。本Skill在第一步（选题）、第二步（标题）、第三步（撰写）都内置了合规机制，第四步推送前还有最终合规扫描。
+1. **双入口**：`/nsksd-auto`（全自动，多选卡一键到草稿）+ `/nsksd-guided`（引导式，每步飞书卡片确认）
+2. **主 Agent 去人名化**：主调度 Agent 名字为 `master-orchestrator`，不再绑定任何真人昵称，可被客户侧 Main Agent 接管
+3. **5 个子 Agent 严格串行**：topic-scout → title-outliner → article-writer → image-designer → format-publisher，每个子 Agent 必须等上一步 artifact 就绪
+4. **guard.py 硬校验门控**：退出码控制流程，禁止 Agent 跳步
+5. **30 天滚动去重**：三维指纹（title_hash + angle + data_points 交集 ≥ 2）
+6. **写作风格改用科普大白话**：不再引用任何个人写作风格，统一走 `references/science-popular-style.md`
+7. **10 主题精选多选卡**：从 31 个主题里挑 10 个做卡片，剩余 21 个作为"其他主题"兜底
+8. **云文档 A/B/C 三次预审**：选题预审 → 标题大纲预审 → 全文+配图+排版预审
 
 ---
 
-## 第一步：选题生成
+## 使用方式（双入口）
 
-### 触发方式
-用户输入 `/nsksd` 或 `/nsksd 选题`，可选附加方向/关键词。
+### `/nsksd-auto`（全自动模式）
 
-### 执行流程
-
-**1.1 素材扫描**
-1. 读取 `references/knowledge-base.md` 获取知识库核心素材
-2. 读取 `references/topic-library.md` 获取已有选题库
-3. 读取 `references/compliance.md` 加载合规红线
-4. 读取 `references/compliance-checklist.md` 加载选题合规预检清单
-5. 如果用户提供了热点方向，结合热点生成；否则从知识库素材中碰撞生成
-
-**1.2 选题合规预检（前置过滤）**
-
-每个选题必须先过5项合规预检，不通过的直接淘汰：
-
-| # | 预检项 | 淘汰标准 |
-|---|--------|----------|
-| 1 | 选题是否暗示纳豆激酶可治疗/治愈疾病？ | 出现"治疗""治愈""根治"等医疗承诺→淘汰 |
-| 2 | 选题是否涉及具体疾病诊断？ | 替代医生给出诊断建议→淘汰 |
-| 3 | 选题是否与竞品做疗效对比？ | 贬低同行或做功效对比→淘汰 |
-| 4 | 选题角度是否可追溯到知识库素材？ | 核心观点无知识库支撑→淘汰 |
-| 5 | 选题是否符合"食品"定位？ | 全文语境超出食品范畴→淘汰 |
-
-**选题安全分级**：
-- 🟢 **安全**：品牌故事/行业科普/大会报道/用户教育 → 直接写作
-- 🟡 **谨慎**：涉及临床数据/健康功效/专家观点 → 写作时逐句合规审查
-- 🔴 **高危**：涉及疾病名称/治疗效果/医学建议 → 必须专人审核
-
-**1.3 选题生成**
-
-围绕四条内容线生成选题，配比为：
-- **科学信任线（40%）**：临床数据、专家背书、研究成果 → 建立信任
-- **健康科普线（30%）**：血管健康、心脑血管、认知障碍 → 吸引泛健康人群
-- **品牌故事线（15%）**：日生研历程、行业净化者、差异化 → 打品牌厚度
-- **招商转化线（15%）**：门店经营、选品方法论、真实账本 → 精准招商
-
-每个选题包含：
-```
-选题名称：
-内容线：科学信任 / 健康科普 / 品牌故事 / 招商转化
-核心角度：（一句话说清楚这篇文章要讲什么）
-目标人群：美容院老板 / 养生馆老板 / 社区门店老板 / 泛健康人群
-目标情绪：XX → XX（如：怀疑→相信）
-知识库素材：（列出可用的具体素材）
-```
-
-**1.4 选题评审打分**
-
-五维度打分（每项1-10分）：
-
-| 维度 | 评分标准 |
-|------|----------|
-| 点击欲望 | 看到标题，目标人群想不想点进来？ |
-| 接地气程度 | 村口大爷能不能看懂？ |
-| 招商转化潜力 | 看完能不能引导到分销合作？ |
-| 科学可信度 | 有没有临床数据/专家/案例支撑？ |
-| 合规安全度 | 踩线风险有多大？ |
-
-分级（总分50分）：
-- **S级**（≥42）：立刻可以写，预期效果好
-- **A级**（34-41）：值得写，可能需要微调
-- **B级**（25-33）：备选，有潜力但需优化
-- **淘汰**（<25）：不输出
-
-### 输出格式
-
-输出10-15个选题，按S→A→B排列：
-```
-选题名称：
-内容线：科学信任 / 健康科普 / 品牌故事 / 招商转化
-核心角度：
-目标人群：
-目标情绪：XX → XX
-知识库素材：
-合规预检：✅通过（🟢安全 / 🟡谨慎 / 🔴高危）
-评分：点击X + 接地气X + 招商X + 科学X + 合规X = 总分XX → S/A/B级
-```
-
-### 🛑 等待用户确认（第一步出口）
-
-输出选题后，**必须**用以下话术引导用户选择：
-
-> 以上是本期选题方案，建议至少选择 3 篇进入下一步：
-> - S级推荐选 1-2 篇（效果最好）
-> - A级推荐选 1-2 篇（值得写）
-> - B级作为备选
+> 适合：熟手、定时任务、追求效率
 >
-> 请回复你要选的编号，比如"选 1、3、5"，我会为你生成标题和大纲。
-> 如果需要调整某个选题的方向，也可以直接告诉我。
+> 流程：一张多选卡 → 选题 → 全自动到草稿箱 → 飞书通知
 
-**禁止在用户回复前自动进入第二步。**
+```
+用户触发 /nsksd-auto
+  ↓
+master-orchestrator 调 guard.py new-session --mode auto  → 得 SID
+  ↓
+topic-scout 生成 10 个选题 → artifacts/<SID>/step1-topics.json
+  ↓
+发送「多选卡」（10 选题 + 10 排版主题）到飞书，等用户勾选
+  ↓
+WSClient 回调 → session.replies[1] 落盘
+  ↓
+title-outliner → article-writer → image-designer → format-publisher
+  ↓
+推送草稿箱 + 发送完成通知
+```
+
+### `/nsksd-guided`（引导式模式）
+
+> 适合：新员工、需要逐步把控内容的场景
+>
+> 流程：每步推送一张飞书卡片 + 云文档预审，用户在输入框写反馈，主 Agent 根据反馈重跑该步
+
+```
+用户触发 /nsksd-guided
+  ↓
+master-orchestrator 调 guard.py new-session --mode guided  → 得 SID
+  ↓
+Step 1: topic-scout → 云文档 A（选题预审）+ 多选卡  → 🛑 等用户勾选+反馈
+  ↓
+Step 2: title-outliner → 云文档 B（标题大纲预审）+ 反馈卡  → 🛑 等用户确认
+  ↓
+Step 3: article-writer → step3-article.md  → 🛑 等用户确认
+  ↓
+Step 4: image-designer → step4-images/  → 🛑 等用户确认
+  ↓
+Step 5: format-publisher → 云文档 C（全文+配图+排版预审）+ 主题选择卡  → 🛑 等用户确认
+  ↓
+format.py 排版 → 合规硬扫 → 推送草稿箱 → 完成通知
+```
 
 ---
 
-## 第二步：标题 + 大纲生成
+## 多 Agent 调度架构
 
-### 触发条件
-用户在第一步后回复了选择的选题编号，或直接用 `/nsksd 标题 <选题>`。
+### 角色分工（`agents/` 目录）
 
-### 执行流程
+| Agent | 文件 | 职责 | 产出 artifact |
+|-------|------|------|---------------|
+| master-orchestrator | `agents/master-orchestrator.md` | 主调度，读 SKILL.md + session 状态，串行派发子 Agent | `sessions/<SID>.json` |
+| topic-scout | `agents/topic-scout.md` | 读知识库 + 查 30 天指纹 → 生成 20 候选 → 输出 10 个 S/A/B 级选题 | `step1-topics.json` |
+| title-outliner | `agents/title-outliner.md` | 为选中选题生成 5 个标题变体 + 6 段式大纲 | `step2-titles.json` |
+| article-writer | `agents/article-writer.md` | 按科普大白话风格写 1500-2500 字全文 | `step3-article.md` |
+| image-designer | `agents/image-designer.md` | Bento Grid 风格生成封面 + 2-3 张配图 | `step4-images/meta.json` |
+| format-publisher | `agents/format-publisher.md` | 主题选择 → format.py 排版 → 合规硬扫 → 推送草稿箱 | `step5-media_id.txt` |
 
-对用户选中的**每个选题**，依次生成：
+### 主 Agent 约束（客户可接管）
 
-**2.1 标题生成（每个选题5个变体）**
+> ⚠️ `master-orchestrator` 被设计为**去人名化、可被客户侧 Main Agent 接管**。
+> 它只读 `SKILL.md` + `sessions/<SID>.json` + 对应 step 的 artifact，**禁止**全量读取 `knowledge/` 或 `references/` 下的长文档，避免拖爆上下文。
+> 详细权限边界见 `agents/master-orchestrator.md`。
 
-标题公式库（每次至少使用3种不同公式）：
-1. **数字冲击型**：「X人临床数据证明：纳豆激酶不是玄学」
-2. **反常识型**：「为什么日本89.4%的人吃纳豆，中国人却在交智商税？」
-3. **恐惧驱动型**：「你的客户正在被直播间抢走」
-4. **利益承诺型**：「社区门店如何靠一款产品锁定500个家庭？」
-5. **提问引导型**：「养生馆老板：你还在靠手艺赚钱吗？」
-6. **悬念型**：「4月24日杭州，纳豆激酶行业可能要变天了」
-7. **对比型**：「卖纳豆激酶的公司千千万，为什么这家要自己花钱做临床？」
+### 串行约束（guard.py 强制）
 
-标题三原则：
-1. **村口大爷原则**：不用专业术语，说人话
-2. **点击优先原则**：标题决定80%的打开率
-3. **人工复核原则**：AI出5个标题，人来挑选和修改
-
-标题合规检查（5项必查，每个标题都要过）：
-
-| # | 检查项 | 通过标准 |
-|---|--------|----------|
-| 1 | 是否含医疗术语？ | 不得出现"治疗/治愈/疗效/药物/处方"等词 |
-| 2 | 是否有绝对化用语？ | 不得出现"最""第一""唯一""根治""100%"等 |
-| 3 | 是否暗示保证效果？ | 不得出现"保证有效""无效退款""立竿见影" |
-| 4 | 是否使用恐吓诱导？ | 不得出现"不吃就晚了""再不注意就危险了" |
-| 5 | 是否涉及虚假权威？ | 引用专家/机构必须真实可查 |
-
-标题禁用清单：
-- 禁止夸大疗效（"治好""根治""特效""神药"）
-- 禁止使用"放大招""炸裂""颠覆""赋能""闭环"等AI味/营销号词汇
-- 禁止假冒专家口吻（"医生建议""专家警告"——除非真的是该专家说的）
-- 禁止虚假数据
-- 禁止使用破折号（——），改用逗号或拆两句
-
-**2.2 大纲生成（每个选题一份）**
-
-1. 读取 `references/knowledge-base.md` 匹配相关素材
-2. 按万能结构生成：
-
-```
-钩子开头（100字以内，制造共鸣或冲突）
-    ↓
-行业洞察/痛点分析（建立"你懂他"的感觉）
-    ↓
-解决方案/趋势机会（给出方向）
-    ↓
-科学背书/数据支撑（建立信任）
-    ↓
-行动路径/案例验证（降低决策门槛）
-    ↓
-软性CTA（"了解合作"而非"立即购买"）
-```
-
-3. 大纲每部分标注：预计字数、可用知识库素材、写作注意事项
-
-**2.3 质量评估**
-
-对每篇的标题+大纲组合，给出评估：
-```
-内容完整度：X/10（大纲是否覆盖关键论点）
-标题吸引力：X/10（目标人群点击意愿）
-合规安全度：X/10（写作过程中踩线风险）
-预计阅读体验：简述（读者看完会有什么感受）
-```
-
-### 输出格式
-
-对每个选中的选题，输出完整的「标题方案 + 大纲 + 评估」。
-
-### 🛑 等待用户确认（第二步出口）
-
-输出后，**必须**用以下话术引导：
-
-> 以上是每篇文章的标题方案和大纲。请确认：
->
-> 1. 每篇文章你选择哪个标题？（如"第1篇选标题3，第2篇选标题1"）
-> 2. 大纲内容有没有需要调整的地方？
-> 3. 如果都OK，回复"确认"，我开始写全文并排版。
->
-> 你也可以针对某篇提出具体修改意见，我会调整后重新给你看。
-
-**禁止在用户回复前自动进入第三步。**
-
----
-
-## 第三步：内容撰写 + 排版 + 预审
-
-### 触发条件
-用户在第二步后回复了"确认"或指定了标题选择，或直接用 `/nsksd 文案 <选题>`。
-
-### 执行流程
-
-**3.1 合规武装（写作前必须完成）**
-1. 读取 `references/knowledge-base.md` 获取全部可用素材
-2. 读取 `references/compliance.md` 加载完整合规审查机制
-3. 读取 `references/compliance-checklist.md` 加载20项检查清单
-4. 确认该选题的合规安全分级（🟢/🟡/🔴），决定写作策略：
-   - 🟢安全选题：正常写作，完成后走标准复审
-   - 🟡谨慎选题：写作中每段都对照禁用词表，完成后逐句复审
-   - 🔴高危选题：写作中逐句检查合规，完成后全文逐项审查
-
-**3.2 合规护栏（写作中的7条铁律）**
-1. **身份定位**：全文语境必须在"食品"范畴内，绝不越界到"药品/保健品"
-2. **数据引用**：每个数据点必须可追溯到知识库原文，不虚构不夸大
-3. **专家引用**：必须标注完整身份（姓名+职务+发言场合），不编造不泛化
-4. **功效表述**：只用"辅助""养护""有助于""研究数据显示"，绝不用"治疗""治愈""预防"
-5. **免责声明**：涉及功效的文章末尾融入一句自然提醒（如"具体情况还是得问医生"），不要模板化尾注
-6. **禁用词实时排查**：写作过程中实时对照禁用词表，发现即替换
-7. **平台适配**：根据目标发布平台遵守对应平台的专属敏感词规则
-
-**3.3 全文撰写**
-
-按确认的大纲结构撰写全文（1500-2500字），在合规护栏内创作。
-
-写作风格要求：
-
-**核心原则：村口大爷能看懂**
-- 口语化为王，像朋友聊天，不像AI写报告
-- 永远具体：不说"很多客户"，说"80%的客户"
-- 结论先行，再展开论据
-- 短中长句交替（23%短句 / 50%中句 / 26%长句）
-- 问号远多于感叹号
-- 适度暴露不确定："大概率""说不准""也许吧"
-
-签名句式（自然使用，不要每篇都用全）：
-- "你会发现" — 引导读者自己得出结论
-- "为什么呢？" — 独立成段制造节奏
-- "说白了" / "本质上" — 把复杂概念翻译成人话
-- "大概率" — 概率性判断，不说绝对话
-
-禁用词（写完必查）：
-赋能、链路、飞轮、认知升级、颗粒度、抓手、闭环、触达、矩阵、范式、痛点、底层逻辑（单独使用）、护城河（泛化使用）、降维打击、生态位、心智模型
-
-禁用句式：
-「不是…而是…」「不是…是…」「并非…而是…」→ 改用直接陈述或"说白了""本质上"引出判断
-
-段落节奏：
-- 长文用 ◆ 或 ---- 切段，3-6个独立段落
-- 编号列表（1️⃣2️⃣3️⃣）结构化复杂内容
-- "……" 留白，话题切换或意犹未尽
-
-CTA规范：
-- 所有行动引导放在文末
-- 用"了解合作"而非"立即购买"
-- 用"想聊聊"而非"立即扫码"
-
-**3.4 配图（可选）**
-
-如果需要为文章生成配图，使用内置的配图能力：
+每个子 Agent 启动前**必须**执行：
 
 ```bash
-# 生成文章配图
-python3 scripts/format/generate_image.py --prompt "图片描述" --filename "output.png" --resolution 2K
+python3 scripts/guard.py check --sid <SID> --step N
+# exit 0 → 允许进入; exit 非 0 → 拒绝进入
 ```
 
-配图场景建议：
-- 科学信任类文章：数据可视化风格插图
-- 品牌故事类文章：品牌调性配图
-- 健康科普类文章：科普插画风格
-- 招商转化类文章：商业场景配图
+guard.py 校验项：
+1. 上一步 artifact 文件存在且非空
+2. guided 模式下，上一步 `status == "confirmed"`；auto 模式下允许 `artifact_ready`
 
-生成的图片会在排版时自动插入文章对应位置，并在推送时上传到微信CDN。
+子 Agent 完成后（guided 模式），主 Agent 收到用户反馈时调用：
 
-> 详细配图说明见 [docs/formatting.md](docs/formatting.md)
-
-**3.5 排版**
-
-写完文案后自动排版：
 ```bash
-python3 scripts/format/format.py --input article.md --theme mint-fresh --no-open
-# 输出目录：/tmp/wechat-format/{文件名stem}/
-# 包含：article.html（微信兼容HTML）、preview.html（预览页，带「复制到微信」按钮）
+python3 scripts/guard.py confirm --sid <SID> --step N --user-reply "..." --selected "1,3,5"
 ```
-
-推荐主题映射：
-| 内容线 | 排版主题 | 风格 |
-|--------|----------|------|
-| 科学信任 | `mint-fresh` | 薄荷绿，清新科普 |
-| 健康科普 | `mint-fresh` | 同上 |
-| 品牌故事 | `coffee-house` | 咖啡棕，温暖叙事 |
-| 招商转化 | `sunset-amber` | 日落琥珀，商业有力 |
-| 默认 | `newspaper` | 报纸风，日常通用 |
-
-**干净草稿铁律**：推送到草稿箱的必须是可直接发布的干净文章。禁止包含：
-- 评分、分级标记（S级/A级/🟢/🟡等）
-- "本文由AI生成"等暴露AI身份的声明
-- 合规检查结果、审查报告
-- "免责声明""温馨提示"等模板化尾注
-- 素材来源清单、参考文献列表
-
-**3.6 写入飞书云文档（预审）**
-
-排版完成后，将全文写入飞书云文档供用户预审。
-
-### 🛑 等待用户确认（第三步出口）
-
-输出后，**必须**用以下话术引导：
-
-> 文章已排版完成，已写入飞书云文档供你预审：
-> 📄 [点击查看云文档]（飞书链接）
->
-> 请在云文档中检查以下内容：
-> 1. 标题是否满意？
-> 2. 正文内容有没有需要修改的地方？
-> 3. 排版效果是否OK？
->
-> 确认无误后回复"推送"，我会将文章推送到公众号草稿箱。
-> 如果需要修改，直接告诉我哪里需要改。
-
-**禁止在用户回复前自动推送草稿箱。**
 
 ---
 
-## 第四步：推送公众号草稿箱
+## 脚本工具栏
 
-### 触发条件
-用户在第三步后回复了"推送"或"确认"，或直接用 `/nsksd 排版 <文案>`。
-
-### 执行流程
-
-**4.1 最终合规扫描**
-推送前对最终版文案做一次快速合规扫描（法律红线8项 + 禁用词扫描），确保没有遗漏。
-
-**4.2 推送草稿箱**
-
-方式一：从 Markdown 一步到位（自动排版+推送）
-```bash
-python3 scripts/format/publish.py --input article.md --theme mint-fresh --title "文章标题" --cover assets/default-cover.jpg
-```
-
-方式二：先排版再推送（两步走）
-```bash
-# 排版（输出到 /tmp/wechat-format/{文件名}/）
-python3 scripts/format/format.py --input article.md --theme mint-fresh --no-open
-
-# 推送（--dir 指向排版输出目录，--cover 必须指定封面图）
-python3 scripts/format/publish.py --dir /tmp/wechat-format/{文件名}/ --title "文章标题" --cover assets/default-cover.jpg
-```
-
-> ⚠️ **封面图是必须的**：publish.py 要求 `--cover` 参数，不指定会报错。没有自定义封面时用 `assets/default-cover.jpg`。
-> 详细的推送操作步骤见 [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md)
-
-**4.3 发送飞书通知**
-推送成功后，发送飞书通知卡片（绿色完成卡片），包含：
-- 文章标题
-- 推送状态
-- 「📝 前往公众号草稿箱」按钮
-
-### 输出
-
-> ✅ 文章已推送到公众号草稿箱！
->
-> - 标题：「xxx」
-> - 主题：mint-fresh
-> - 草稿 media_id: xxx
->
-> 请到微信公众号后台 → 草稿箱 查看和发布。
-> 📝 https://mp.weixin.qq.com
+| 脚本 | 用途 | 核心命令 |
+|------|------|---------|
+| `scripts/guard.py` | 流程硬校验门控 | `new-session --mode auto\|guided` / `check --sid --step` / `confirm --sid --step` / `mark-ready` / `status` |
+| `scripts/topic_history.py` | 30 天滚动去重 | `load-30d` / `check --json '{...}'` / `append --json '{...}' --sid SID` / `mark --title-hash XX --status published` / `stats` |
+| `scripts/interactive/docs_publisher.py` | 云文档 A/B/C 预审发布 | `publish --sid <SID> --step 1\|2\|5` |
+| `scripts/interactive/lark_ws_listener.py` | 飞书长连接卡片回调 | `python3 lark_ws_listener.py`（守护进程） |
+| `scripts/interactive/card_builder.py` | schema 2.0 卡片构造 | 被 listener 调用，不单独运行 |
+| `scripts/interactive/session_manager.py` | 会话状态读写 | 被 listener 和 Agent 调用 |
+| `scripts/format/format.py` | Markdown → 微信 HTML | `--input X.md --theme mint-fresh --no-open` |
+| `scripts/format/publish.py` | 推送公众号草稿箱 | `--dir /tmp/wechat-format/X/ --title "..." --cover assets/default-cover.jpg` |
+| `scripts/format/generate_image.py` | Gemini 配图 | `--prompt "..." --filename X.png --resolution 2K` |
 
 ---
 
-## 独立功能：合规复审（`/nsksd 复审` 或 `/nsksd 合规检查`）
+## 30 天选题滚动去重（v8.2 新增）
 
-可独立于主流程使用，对任意文案执行20项完整合规检查。
+`scripts/topic_history.py` 维护 `logs/topic-history.jsonl`，基于三维指纹做去重：
 
-### 执行流程
+1. **title_hash**：标题去停用词 + SHA1 前 12 位
+2. **angle**：核心角度字符串严格匹配
+3. **data_points**：数据点集合重合 ≥ 2 视为重复
 
-1. 读取 `references/compliance.md` 加载完整合规审查机制
-2. 读取 `references/compliance-checklist.md` 加载20项检查清单
-3. 按四大类、20项逐条检查：
+topic-scout 生成候选时**必须**先 `load-30d` 过滤：
 
-### 第一类：法律红线（8项，违反即违法，罚款20万-100万）
-
-| # | 检查项 | 法律依据 |
-|---|--------|----------|
-| 1 | 是否将食品宣传为药品？ | 《广告法》第17条 |
-| 2 | 是否出现疾病治疗/预防承诺？ | 《广告法》第17条 |
-| 3 | 是否使用"最高级""国家级"等绝对化用语？ | 《广告法》第9条 |
-| 4 | 是否虚构/篡改临床数据？ | 《广告法》第4条 |
-| 5 | 是否利用患者形象做功效证明？ | 《广告法》第18条 |
-| 6 | 是否冒用或虚构专家身份？ | 《广告法》第11条 |
-| 7 | 食品描述是否涉及疾病预防治疗？ | 《食品安全法》第71条 |
-| 8 | 是否以学术论文名义做商业宣传？ | 《食品安全法实施条例》第38条 |
-
-> ⚠️ **铁律**：第一类任何一项不通过 = 整篇文案禁止发布。
-
-### 第二类：平台规则（6项，违反即限流/封号）
-
-| # | 检查项 | 平台依据 |
-|---|--------|----------|
-| 9 | 公众号：是否触发健康类内容审核？ | 微信公众平台运营规范4.1 |
-| 10 | 公众号：是否含有引导外部交易的内容？ | 微信公众平台运营规范3.3 |
-| 11 | 小红书：是否含绝对化/夸大用语？ | 小红书《广告违禁词规范》 |
-| 12 | 小红书：是否触发医疗健康类限流词？ | 小红书内容审核规范 |
-| 13 | 抖音：是否符合健康科普内容创作者资质？ | 抖音《健康内容管理规范》 |
-| 14 | 抖音：是否含有"保健食品"相关违规表述？ | 抖音广告审核规范 |
-
-### 第三类：内容质量（6项）
-
-| # | 检查项 | 标准 |
-|---|--------|------|
-| 15 | 所有临床数据是否标注来源？ | 必须注明出处 |
-| 16 | 专家观点是否标注身份和场景？ | 必须注明姓名、职务、发言场合 |
-| 17 | 是否包含免责声明？ | 功效类文章末尾必须有自然提醒 |
-| 18 | 是否使用"村口大爷原则"表述？ | 专业术语必须有通俗解释 |
-| 19 | 是否避免了所有禁用词？ | 对照禁用词表逐一排查 |
-| 20 | 招商信息是否自然融入？ | 不得硬广 |
-
-### 禁用词速查
-
-**绝对禁止（出现即违法）**：
-治疗/治愈/根治 → "辅助健康管理""营养补充"
-药物/药品/处方 → "功能性食品""营养食品"
-疗效/药效 → "研究数据显示""临床观察发现"
-预防XX病/防治 → "有助于维护XX健康"
-最好/最强/第一/唯一 → "领先""优质""代表性"
-100%有效/保证见效 → "研究显示XX%的受试者..."
-无副作用/绝对安全 → "安全性数据良好""耐受性好"
-
-**高风险（平台易触发审核）**：
-降血压/降血脂/降血糖 → "有助于维护心血管健康"
-溶栓/溶解血栓 → "纤溶酶活性研究"
-抗癌/防癌 → 禁止使用，不做替换
-消炎/杀菌 → "有助于维护身体平衡"
-排毒/清肠 → "膳食营养补充"
-增强免疫力 → "营养支持"
-患者/病人 → "关注健康的人群""受试者"
-临床验证/医学证明 → "研究数据显示""科学观察"
-脉管焕新 → 禁止使用（同行已因此被央视点名）
-
-**AI味/营销号词汇**：
-赋能/链路/飞轮/认知升级/颗粒度/抓手/闭环/触达/矩阵/范式/底层逻辑/降维打击/生态位/心智模型/放大招/炸裂/颠覆
-
-**禁用句式**：
-「不是…而是…」「并非…而是…」→ 改用直接陈述或"说白了""本质上"引出判断
-
-**平台专属敏感词**：
-- 小红书："私聊""加微""详询客服"→"评论区留言"；"代理""加盟""拿货"→"合作伙伴计划"；"月入XX万""躺赚"→禁止
-- 抖音："点击购物车""橱窗"→食品类需审核资质；"医生推荐""专家推荐"→需实名认证
-- 公众号：外部链接→可能被判定诱导外链；"限时优惠""最后XX名"→可能触发营销限流
-
-### 输出格式
+```python
+from topic_history import load_fingerprints_30d, check_topic
+fp = load_fingerprints_30d()
+for candidate in raw_candidates:
+    hit = check_topic(candidate, fp)
+    if hit["hit"]:
+        continue  # 30 天内写过，丢弃
 ```
-## 合规复审报告
 
-### 📋 检查摘要
-- 文章标题：
-- 目标平台：☐公众号 ☐小红书 ☐抖音
-- 审查日期：
+入库时机：
+- 候选落盘 → `append_candidates(topics, sid=SID)`，状态 `candidate`
+- 发到草稿箱 → `mark --title-hash XX --status published`
 
-### 第一类 法律红线（8项）：✅ X/8通过 / ❌ 不通过
-（不通过项列表 + 具体违规内容 + 法律条款 + 修改建议）
+---
 
-### 第二类 平台规则（X项）：✅ X/X通过 / ⚠️ 有风险
-（风险项列表 + 修改建议）
+## 云文档 A/B/C 预审（v8.2 新增）
 
-### 第三类 内容质量（6项）：✅ X/6通过 / ⚠️ 需优化
-（需优化项列表 + 修改建议）
+`scripts/interactive/docs_publisher.py` 在三个关键节点自动创建飞书云文档：
 
-### 禁用词扫描：✅ 通过 / ⚠️ 发现X个
+| 云文档 | 触发步骤 | 内容 | 用户操作 |
+|--------|---------|------|---------|
+| A · 选题预审 | step 1 完成 | 10 个选题 × S/A/B 分组 + 评分 + 合规 + 备选标题 | 在云文档评论区写意见，或直接在多选卡勾选 |
+| B · 标题大纲预审 | step 2 完成 | 每个选题 5 个标题变体 + 6 段式大纲 + 改进建议 | guided 模式下在反馈卡写具体修改意见 |
+| C · 全文+配图+排版预审 | step 5 完成（推送前） | 全文 Markdown 解析 + 配图清单 + 排版主题 | 最后一次确认，OK 则回复"推送" |
 
-### 🎯 审查结论
-- ☐ ✅ 可发布（20项全部通过）
-- ☐ ⚠️ 需修改（有风险项但无法律红线）
-- ☐ ❌ 禁止发布（法律红线不通过）
+调用方式：
 
-### 综合评分：XX/100
-
-### 修订版文案：
-（如有修改，输出完整修改后文案）
+```bash
+python3 scripts/interactive/docs_publisher.py publish --sid <SID> --step 1
+# 输出: https://bytedance.feishu.cn/docx/xxx
+# 同时写回 sessions/<SID>.json.docs[str(step)]
 ```
+
+---
+
+## 写作风格（科普大白话，`references/science-popular-style.md`）
+
+> ⚠️ **客户侧使用铁律**：写文章时**绝对不要**引用任何个人写作风格。
+> article-writer 子 Agent 只读 `references/science-popular-style.md`，定位为「像社区医生跟邻居唠嗑」。
+
+核心约束（完整见 references 文档）：
+
+- 字数 1500-2500 字，段落 ≤ 5 行
+- **禁用词**：商业黑话（赋能/链路/飞轮/颗粒度/抓手/闭环/触达/矩阵/范式/护城河/底层逻辑/降维打击/生态位/心智模型/跃迁/复利）、AI 客套（综上所述/值得一提的是/无独有偶/众所周知/毋庸置疑/由此可见/总而言之）、模糊废话（很多/大部分/各种各样/若干/相关人士/有关专家/业内人士）
+- **禁用句式**：「不是 X 而是 Y」「不仅 X 而且 Y」「一方面 X 另一方面 Y」「首先/其次/最后」连续出现
+- **破折号**：整篇 `——` 或 `—` ≤ 2 个
+- **感叹号**：整篇 `!` ≤ 3 个
+- **每个数字必注出处**
+- **6 段式标准结构**：钩子（50-80 字）→ 问题陈述（200-300 字）→ 科学证据（300-500 字）→ 产品衔接（200-300 字）→ 赚钱逻辑（200-400 字，招商向才写）→ 收尾（50-100 字）
+
+---
+
+## 排版主题（10 精选 + 21 兜底，`references/themes-curated.md`）
+
+### 10 精选主题（多选卡默认展示）
+
+| # | key | 中文名 | 调性 | 适用场景 |
+|---|-----|--------|------|---------|
+| 1 | `minimal-blue` | 简约蓝 | 偏科普 · 专业感 | 临床研究、科学原理 |
+| 2 | `coffee-house` | 咖啡馆 | 偏温暖 · 生活化 | 品牌故事、用户案例 |
+| 3 | `mint-fresh` | 薄荷清爽 | 偏科普 · 亲和 | 科普解惑、健康常识 |
+| 4 | `magazine` | 杂志风 | 偏品质 · 权威 | 深度长文、行业洞察 |
+| 5 | `ink` | 水墨 | 偏文艺 · 高级 | 品牌调性、传统文化 |
+| 6 | `newspaper` | 报纸 | 偏正经 · 严肃 | 政策解读、合规内容 |
+| 7 | `midnight` | 午夜黑 | 偏高级 · 极简 | 产品发布、重点公告 |
+| 8 | `lavender-dream` | 柔雾紫 | 偏柔和 · 女性向 | 美容院、女性健康 |
+| 9 | `minimal-gray` | 极简灰 | 偏清爽 · 中性 | 日常科普、短内容 |
+| 10 | `focus-gold` | 专注金 | 偏重点 · 招商 | 分销招商、赚钱逻辑 |
+
+### 内容线 → 主题自动映射（auto 模式）
+
+```python
+AUTO_THEME_BY_LINE = {
+    "科学信任": "minimal-blue",  "临床证据": "minimal-blue",
+    "行业洞察": "magazine",       "品牌故事": "coffee-house",
+    "赚钱逻辑": "focus-gold",     "科普解惑": "mint-fresh",
+    "政策解读": "newspaper",      "女性健康": "lavender-dream",
+    "日常科普": "minimal-gray",   "重点公告": "midnight",
+}
+```
+
+用户在多选卡点「🔍 查看全部 31 个主题」可展开兜底清单。
+
+---
+
+## 飞书卡片回调机制（v8.1 起稳定）
+
+> 飞书已配置**长连接（WebSocket）**，不走 webhook URL。
+
+- `scripts/interactive/lark_ws_listener.py` 守护进程监听 `card.action.trigger` 事件
+- 卡片采用 schema 2.0 + `form` 容器 + `form_action_type: "submit"` + `required: false`
+- 用户提交后回调结构：`event.action.form_value.{user_feedback, topic_1, topic_3, ...}`
+- listener 提取 `form_value.user_feedback` → 写入 `sessions/<SID>.json.replies[step]`
+- 返回灰底锁定卡（保留原标题 + 正文，按钮替换为"已提交"）
+
+关键约束：
+- 回调必须 3 秒内返回响应，写稿走异步
+- form 内 checker **不配 behaviors**（否则 230099）
+- input 组件**不得**设 `required: true`（会触发"请勾选"幽灵校验）
+
+---
+
+## 合规贯穿全流程
+
+每一步都内置合规机制：
+
+- **step 1 选题**：5 项合规预检 + 🟢/🟡/🔴 分级
+- **step 2 标题**：5 项合规查 + 标题禁用清单
+- **step 3 全文**：7 条写作护栏 + 禁用词实时排查
+- **step 5 推送前**：最终合规扫描（8 项法律红线 + 6 项平台规则 + 6 项内容质量 + 禁用词扫描）
+
+> 完整合规规则见 `references/compliance.md` + `references/compliance-checklist.md`。
+
+---
+
+## 独立功能：合规复审
+
+```
+/nsksd 复审 <文案>
+/nsksd 合规检查 <文案>
+```
+
+不进入主流程，对任意文案执行 20 项完整合规检查（法律红线 8 项 + 平台规则 6 项 + 内容质量 6 项 + 禁用词扫描）。
+
+---
+
+## 知识库与参考文件
+
+### knowledge/ — 完整知识库（77 份原文，**仅子 Agent 按需读取**）
+
+| 目录 | 文件数 | 内容 |
+|------|--------|------|
+| `knowledge/核心文档/` | 7 份 | 企业介绍、百问百答、专家建议、专家共识、临床册子、科学循证文献合辑 |
+| `knowledge/2025新闻/` | 20 份 | 2025-2026 年央媒报道 |
+| `knowledge/2025之前/` | 49 份 | 2019-2024 年历史新闻报道 |
+| `knowledge/FFC2026大会预热宣传策划.md` | 1 份 | FFC 大会预热策划 |
+
+### references/ — 精华提炼（子 Agent 和主 Agent 都可读）
+
+| 文件 | 内容 | 谁读 |
+|------|------|------|
+| `references/knowledge-base.md` | 知识库核心素材精华 | topic-scout / article-writer |
+| `references/topic-library.md` | 已验证选题 + 标题公式 | topic-scout / title-outliner |
+| `references/science-popular-style.md` | **科普大白话写作规范** | article-writer（唯一风格来源） |
+| `references/themes-curated.md` | 10 主题精选 + 自动映射 | format-publisher |
+| `references/compliance.md` | 合规红线、禁用词 | 所有子 Agent |
+| `references/compliance-checklist.md` | 20 项合规清单 | 写作和复审时 |
 
 ---
 
@@ -544,262 +297,63 @@ python3 scripts/format/publish.py --dir /tmp/wechat-format/{文件名}/ --title 
 
 | 数据 | 正确表述 | 来源 |
 |------|----------|------|
-| 1062人临床 | "迄今纳豆激酶领域最大规模临床试验，1062人参与" | 科学循证文献合辑 |
-| 斑块改善率 | "颈动脉斑块改善率66.5%-95.4%" | 临床册子 |
-| 认知衰退风险 | "视觉空间功能衰退风险降低约65%" | 浙大RCT研究 |
-| 专家建议 | "北京神经内科学会等3家学术机构、30余位专家" | 专家建议原文 |
-| FU用量 | "10800FU/天（1062人试验）或8000FU/天（浙大RCT）" | 对应研究论文 |
-| EFSA安全性 | "欧洲食品安全局2017年认证安全" | 科学循证文献 |
+| 1062 人临床 | "迄今纳豆激酶领域最大规模临床试验，1062 人参与" | 科学循证文献合辑 |
+| 斑块改善率 | "颈动脉斑块改善率 66.5%-95.4%" | 临床册子 |
+| 认知衰退风险 | "视觉空间功能衰退风险降低约 65%" | 浙大 RCT 研究 |
+| 专家建议 | "北京神经内科学会等 3 家学术机构、30 余位专家" | 专家建议原文 |
+| FU 用量 | "10800FU/天（1062 人试验）或 8000FU/天（浙大 RCT）" | 对应研究论文 |
+| EFSA 安全性 | "欧洲食品安全局 2017 年认证安全" | 科学循证文献 |
 
 ---
 
-## 知识库与参考文件
-
-### knowledge/ — 完整知识库（77份原文）
-
-| 目录 | 文件数 | 内容 | 何时读取 |
-|------|--------|------|----------|
-| `knowledge/核心文档/` | 7份 | 企业介绍、百问百答、专家建议、专家共识、临床册子、科学循证文献合辑 | **撰写文案时优先读取** |
-| `knowledge/2025新闻/` | 20份 | 2025-2026年央媒报道 | 需要引用权威报道时 |
-| `knowledge/2025之前/` | 49份 | 2019-2024年历史新闻报道 | 需要追溯历史事件时 |
-| `knowledge/FFC2026大会预热宣传策划.md` | 1份 | FFC大会预热策划 | 涉及大会选题时 |
-
-**使用优先级**：核心文档 > 2025新闻 > 2025之前
-
-### references/ — 精华提炼（快速查阅）
-
-| 文件 | 内容 | 何时读取 |
-|------|------|----------|
-| `references/knowledge-base.md` | 知识库核心素材精华提炼 | 快速获取关键数据点。**时间紧迫只读这一个就够** |
-| `references/topic-library.md` | 已验证选题+标题公式库 | 生成选题和标题时 |
-| `references/compliance.md` | 合规红线、禁用词清单 | 撰写和复审时 |
-| `references/compliance-checklist.md` | 20项合规检查清单 | 撰写和复审时 |
-
----
-
-## 飞书卡片推送系统
-
-### 整体流程
-
-```
-选题生成 → 飞书云文档 → 清单卡+多选卡 → 用户勾选提交
-  → WSClient收到card.action.trigger回调 → 解析form_value
-  → Claude CLI写稿 → format.py排版 → publish.py推送草稿箱
-  → 发送完成通知卡片
-```
-
-### 两张卡片
-
-| 卡片 | schema | 颜色 | 用途 |
-|------|--------|------|------|
-| 📋 清单卡 | 1.0 | 绿色 | 选题概览 + 飞书云文档链接（只读，不交互） |
-| 📝 多选卡 | 2.0 | 蓝色 | form容器 + checker勾选 + 提交按钮（交互） |
-
-### 服务启动方式
+## 公众号推送流程（format-publisher 执行）
 
 ```bash
-cd scripts/server
-source .env    # 加载飞书凭据
-bun run index.ts
-```
+# 1. 排版
+python3 scripts/format/format.py --input artifacts/<SID>/step3-article.md --theme minimal-blue --no-open
+# 输出: /tmp/wechat-format/step3-article/
 
-启动后本地 HTTP 管理端口（默认 9800）：
-
-| 端点 | 方法 | 用途 | 示例 |
-|------|------|------|------|
-| `/health` | GET | 健康检查 | `curl http://localhost:9800/health` |
-| `/status` | GET | 查看当前选题和生成状态 | `curl http://localhost:9800/status` |
-| `/register-topics` | POST | 注册选题（定时脚本调用） | `curl -X POST localhost:9800/register-topics -H 'Content-Type: application/json' -d '{"topics":[...]}'` |
-| `/set-doc-url` | POST | 设置飞书云文档URL | `curl -X POST localhost:9800/set-doc-url -d '{"doc_url":"https://..."}'` |
-| `/send-summary-card` | POST | 发送清单卡 | `curl -X POST localhost:9800/send-summary-card -H 'Content-Type: application/json' -d '{}'` |
-| `/send-card` | POST | 发送多选卡 | `curl -X POST localhost:9800/send-card -H 'Content-Type: application/json' -d '{}'` |
-
-### 多选卡的回调机制（关键）
-
-1. 用户在飞书中打开多选卡，勾选选题（checker组件），点击「提交选题」按钮
-2. 飞书通过 WSClient 长连接推送 `card.action.trigger` 事件到服务端
-3. 回调数据结构：
-```json
-{
-  "event": {
-    "operator": { "open_id": "ou_xxx" },
-    "action": {
-      "form_value": {
-        "topic_1": true,
-        "topic_3": true,
-        "topic_5": true,
-        "submit_btn": { "tag": "button" }
-      }
-    }
-  }
-}
-```
-4. 服务端解析 `form_value`：提取 `topic_` 开头且值为 `true` 的键 → 得到选题编号
-5. 异步调用 `handleTopicSelection()` → Claude CLI 写稿 → format.py 排版 → publish.py 推送
-6. 返回 toast + 更新卡片为变灰状态（header template: grey, 按钮/checker disabled）
-
-**关键约束**：
-- 回调必须在 **3秒内** 返回响应，否则飞书超时。所以写稿流程放在异步函数中，不阻塞回调
-- checker 在 form 内时**不配 behaviors**（否则触发飞书 200672 错误），只靠 form 提交按钮触发回调
-- checker 的 name 格式固定为 `topic_{index}`，值为布尔型（true = 已勾选）
-
-### 备选方案：文本消息触发
-
-用户也可以在飞书聊天中直接回复编号（如 `1 3 5` 或 `1、3、5`），服务端通过 `im.message.receive_v1` 事件解析编号并触发写稿。
-
-> 卡片JSON完整结构和更多发送方式见 [docs/feishu-cards-step-by-step.md](docs/feishu-cards-step-by-step.md)
-
----
-
-## 公众号排版与发布
-
-本Skill内置完整的公众号排版系统（31个主题），全部自包含，不依赖外部Skill。
-
-### 完整操作步骤（每一步怎么做的）
-
-**步骤1：写完文章保存为 Markdown 文件**
-```bash
-# 文章保存为 .md 文件（第一行是 # 标题）
-# 如果需要AI配图，在文章中插入占位符：
-# <!-- IMAGE(science): 图片描述 -->
-# 风格：science / brand / health / business / cover
-```
-
-**步骤2：排版（Markdown → 微信兼容HTML）**
-```bash
-python3 scripts/format/format.py --input article.md --theme mint-fresh --no-open
-# 输出目录：/tmp/wechat-format/{文件stem}/
-# 生成文件：
-#   article.html  — 全内联样式HTML（微信不支持<style>标签，所有样式必须内联）
-#   preview.html  — 预览页（带「复制到微信」按钮，可在浏览器中预览效果）
-#   images/       — 如果有配图占位符且设了GEMINI_API_KEY，生成的图片在这里
-```
-
-**步骤3：推送到公众号草稿箱**
-```bash
-# 方式一：从排版输出目录推送（推荐）
+# 2. 推送草稿箱
 python3 scripts/format/publish.py \
-  --dir /tmp/wechat-format/{文件stem}/ \
+  --dir /tmp/wechat-format/step3-article/ \
   --title "文章标题" \
-  --cover assets/default-cover.jpg
+  --cover artifacts/<SID>/step4-images/cover.png
 
-# 方式二：从Markdown一步到位（自动排版+推送）
-python3 scripts/format/publish.py \
-  --input article.md \
-  --theme mint-fresh \
-  --title "文章标题" \
-  --cover assets/default-cover.jpg
+# 3. 回写 media_id
+echo "$MEDIA_ID" > artifacts/<SID>/step5-media_id.txt
 ```
 
-**步骤4：验证推送结果**
-```
-推送成功会输出：
-  发布成功!
-  草稿 media_id: RTt8Y-U45B92SLFlt9IpKE4Z...
-  → 请到微信公众号后台 → 草稿箱 查看和发布
-```
-
-### 关键踩坑记录
-
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| `错误: 微信要求必须有封面图` | publish.py 必须有 `--cover` 参数 | 用 `assets/default-cover.jpg` 或自定义封面 |
-| `错误: 40164 ip not in whitelist` | 微信IP白名单未配置 | 到公众号后台→基本配置→IP白名单添加本机IP |
-| `错误: 40001 invalid credential` | AppID/AppSecret 错误 | 检查 config.json 或 .env 中的微信凭据 |
-| 排版后样式丢失 | 用了 `<style>` 标签 | format.py 已处理，所有样式内联，无需手动调整 |
-| 图片占位符没生成图片 | 未设置 GEMINI_API_KEY | 设置环境变量，或者不设也不影响排版（降级为文字提示） |
-
-### publish.py 内部执行流程
-
-```
-1. 读取 config.json 获取微信 AppID/AppSecret
-2. 调用微信API获取 access_token（有效期7200秒）
-3. 扫描 article.html 中的本地图片 → 逐个上传到微信CDN → 替换为微信URL
-4. 上传封面图 → 获取 thumb_media_id
-5. 调用「新建草稿」API → 推送到草稿箱 → 返回 media_id
-```
-
-### format.py 参数速查
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--input` | Markdown文件路径 | 必填 |
-| `--theme` | 主题名（31个可选） | mint-fresh |
-| `--output` | 输出目录 | /tmp/wechat-format/ |
-| `--no-open` | 不自动打开浏览器 | 建议加上 |
-| `--gallery` | 主题画廊模式，预览多个主题 | - |
-| `--format` | 输出格式：wechat/html/plain | wechat |
-
-> 排版系统完整说明见 [docs/formatting.md](docs/formatting.md)
-> 推送草稿箱完整手册见 [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md)
+干净草稿铁律（推到草稿箱前必删）：
+- 评分、分级标记（S 级/A 级/🟢/🟡）
+- "本文由 AI 生成"等暴露 AI 身份的声明
+- 合规检查结果、审查报告
+- "免责声明""温馨提示"等模板化尾注
+- 素材来源清单、参考文献列表
 
 ---
 
 ## 凭据自动配置（首次使用时 Agent 自动执行）
 
-> ⚠️ **铁律：所有凭据从配置文件读取，绝不硬编码到代码中。**
-> ⚠️ **原则：Agent 自动获取一切能自动获取的，只在必要时问用户。**
-
-### 自动化程度
+> ⚠️ **铁律**：所有凭据从配置文件读取，绝不硬编码。Agent 自动获取一切能自动获取的，只在必要时问用户。
 
 | 凭据 | Agent 自动获取？ | 获取方式 |
 |------|:---:|------|
-| 飞书 App ID | ✅ 自动 | `lark-cli config show` → `appId` |
-| 飞书 App Secret | ✅ 自动 | 读取 lark-cli 配置文件（路径从 `config show` 输出获取） |
-| 飞书 Open ID | ✅ 自动 | `lark-cli config show` → `users` 字段中解析 `ou_` 前缀 |
-| 飞书 Chat ID | ✅ 自动 | `lark-cli im +chat-search --query "群名" --as bot` |
-| 微信 App ID | ❌ 问用户一次 | 无 CLI 工具，用户从公众号后台获取 |
-| 微信 App Secret | ❌ 问用户一次 | 无 CLI 工具，用户从公众号后台获取 |
-| 微信 IP 白名单 | ⚠️ 半自动 | Agent 用 `curl ifconfig.me` 查出 IP，提醒用户到后台添加 |
+| 飞书 App ID / Secret / Open ID | ✅ | `lark-cli config show` |
+| 飞书 Chat ID | ✅ | `lark-cli im +chat-search --query "群名" --as bot` |
+| 微信 App ID / Secret | ❌ | 问用户一次（无 CLI） |
+| 微信 IP 白名单 | ⚠️ 半自动 | `curl ifconfig.me` 查 IP，提醒用户加白名单 |
 
-### Agent 首次配置执行流程
-
-> **读到此章节时，如果 `.env` 或 `config.json` 中的凭据是占位符（含 `your_` 或 `YOUR_`），
-> Agent 必须立即读取 [docs/credentials-auto-setup.md](docs/credentials-auto-setup.md) 并按流程自动配置。**
-> **不要让用户手动去获取 ID。**
-
-简要流程（完整步骤见 `docs/credentials-auto-setup.md`）：
-
-```
-1. which lark-cli           → 检查是否安装（未装则提醒用户 npm install -g @nicepkg/lark-cli）
-2. lark-cli config show     → 检查是否已配置飞书应用
-3. 解析输出自动提取 appId、appSecret、open_id
-4. 检查 config.json 是否已有微信凭据
-5. 如果没有 → 向用户要 微信 AppID + AppSecret + 作者名（这是唯一需要用户操作的）
-6. curl ifconfig.me          → 查出口 IP，提醒用户加白名单
-7. 自动写入 .env 和 config.json
-8. 自动安装依赖（bun install + pip3 install）
-9. 发送飞书测试消息验证
-10. curl 微信 API 验证 token
-```
-
-### 一键配置脚本（备选）
-
-如果 Agent 不方便逐步执行，也可以运行一键脚本（交互式，会自动提取飞书凭据、只问微信凭据）：
-```bash
-bash scripts/setup-credentials.sh
-```
-
-### 配置文件位置
-
-| 文件 | 作用 | 由谁写入 |
-|------|------|----------|
-| `scripts/server/.env` | 飞书 + 微信凭据 + 运行配置 | Agent 自动写入 |
-| `config.json` | 微信凭据 + 排版配置 | Agent 自动写入 |
-| `scripts/server/.env.example` | `.env` 模板（仅参考） | 随 Skill 分发 |
-| `config.json.example` | `config.json` 模板（仅参考） | 随 Skill 分发 |
+完整流程见 `docs/credentials-auto-setup.md`。一键脚本：`bash scripts/setup-credentials.sh`。
 
 ---
 
 ## 定时任务与环境配置
 
-- **Mac**：LaunchAgent plist，每天10:00触发
-- **Windows**：Task Scheduler XML，每天10:00触发
-- **首次配置**：运行 `bash scripts/setup.sh`，填入飞书和微信凭据
+- **Mac**：LaunchAgent plist，每天 10:00 触发
+- **Windows**：Task Scheduler XML，每天 10:00 触发
+- **首次配置**：`bash scripts/setup.sh`
 
-> 定时任务详情见 [docs/scheduling.md](docs/scheduling.md)
-> 首次安装指南见 [docs/setup.md](docs/setup.md)
-> 新手引导（飞书+微信配置）见 [docs/onboarding.md](docs/onboarding.md)
+> 详情见 `docs/scheduling.md` / `docs/setup.md` / `docs/onboarding.md`。
 
 ---
 
@@ -807,23 +361,23 @@ bash scripts/setup-credentials.sh
 
 | 文档 | 内容 | 何时阅读 |
 |------|------|----------|
-| [docs/credentials-auto-setup.md](docs/credentials-auto-setup.md) | **凭据自动配置（Agent 专用）**：自动获取飞书/微信凭据的完整指引 | **凭据未配置时 Agent 必读** |
-| [docs/onboarding.md](docs/onboarding.md) | 新手引导：飞书机器人创建 + 微信开放平台配置（人工操作参考） | 需要人工创建飞书应用时 |
-| [docs/setup.md](docs/setup.md) | 安装配置、依赖检查 | 新机器首次使用时 |
-| [docs/formatting.md](docs/formatting.md) | 排版系统、31个主题、配图能力、干净草稿要求 | 执行排版时 |
-| [docs/wechat-publish-step-by-step.md](docs/wechat-publish-step-by-step.md) | **微信推送完整手册**：每一步脚本怎么写怎么设置 | 推送草稿箱时 |
-| [docs/feishu-cards.md](docs/feishu-cards.md) | 卡片设计、回调机制、WSClient服务 | 修改卡片或调试时 |
-| [docs/feishu-cards-step-by-step.md](docs/feishu-cards-step-by-step.md) | **飞书卡片完整手册**：每种卡片怎么写怎么推送 | 发送飞书通知时 |
-| [docs/scheduling.md](docs/scheduling.md) | Mac/Windows定时任务配置 | 配置每日自动推送时 |
+| `agents/*.md` | 6 个 Agent 角色提示词 | 子 Agent 启动时由 master-orchestrator 挂载 |
+| `references/science-popular-style.md` | **科普大白话风格指南** | article-writer 必读 |
+| `references/themes-curated.md` | 10 主题精选 + 自动映射 | format-publisher 必读 |
+| `docs/diagrams/` | 架构图（总览/双模式/多 Agent/去重） | 理解整体流程时 |
+| `docs/credentials-auto-setup.md` | 凭据自动配置 | 凭据未配置时 |
+| `docs/feishu-cards-step-by-step.md` | 飞书卡片完整手册 | 修改卡片或调试回调 |
+| `docs/wechat-publish-step-by-step.md` | 微信推送完整手册 | 推送草稿箱时 |
+| `docs/formatting.md` | 排版系统、31 主题、配图 | 执行排版时 |
 
 ---
 
 ## 关键提醒
 
-1. **纳豆激酶是食品，不是药品**。任何内容都不能暗示治疗效果
-2. **NSKSD是具体品牌**，不等于"纳豆激酶"品类。临床数据仅针对NSKSD产品
+1. **纳豆激酶是食品，不是药品**。任何内容不得暗示治疗效果
+2. **NSKSD 是具体品牌**，不等于"纳豆激酶"品类。临床数据仅针对 NSKSD 产品
 3. **目标读者是门店老板**，不是消费者。内容要讲"赚钱逻辑"
-4. **村口大爷原则**是最高优先级的写作标准
-5. **标题永远是第一优先级**。关键是"看到标题愿意点进来"
-6. **引导式流程不可跳步**。每步完成后必须等用户确认再继续
-7. **排版走themes/**。按内容线选择推荐主题
+4. **科普大白话原则**是最高优先级的写作标准（不再引用任何个人写作风格）
+5. **引导模式不可跳步**。guard.py 硬校验会拒绝跳步
+6. **30 天内不重复选题**。topic_history.py 三维指纹去重
+7. **排版走 10 精选 + 21 兜底**。按内容线自动映射

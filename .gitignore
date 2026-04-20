@@ -18,3 +18,8 @@ node_modules/
 # 临时文件
 /tmp/
 *.pid
+*.out
+
+# 运行时会话与产物（Skill 运行时生成，不入库）
+scripts/interactive/sessions/
+artifacts/

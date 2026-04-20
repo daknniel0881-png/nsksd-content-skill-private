@@ -1,5 +1,66 @@
 # 更新日志
 
+## v8.2（2026-04-20）
+
+**多 Agent 调度架构 + 双入口 + 30 天去重 + 客户侧通用化**
+
+### 核心变更
+
+- **双入口命令**：`/nsksd-auto`（全自动）+ `/nsksd-guided`（引导式），取代原单一 `/nsksd`
+- **主 Agent 去人名化**：`master-orchestrator` 作为通用主调度 Agent，无绑定任何真人昵称，客户侧可直接让自己的 Main Agent 接管
+- **5 个子 Agent 严格串行**：topic-scout → title-outliner → article-writer → image-designer → format-publisher
+- **guard.py 硬校验门控**：基于退出码控制流程，禁止 Agent 跳步（取代原 🛑 markdown 软提醒）
+- **30 天滚动去重**：三维指纹（title_hash + angle + data_points 交集 ≥ 2）
+- **写作风格去人化**：article-writer 不再引用任何个人写作风格，统一走科普大白话
+- **10 主题精选**：从 31 个主题精选 10 个做飞书多选卡，剩余 21 个作为"其他主题"兜底
+- **云文档 A/B/C 三次预审**：选题/标题大纲/全文+配图+排版 三个节点自动生成飞书云文档
+
+### 新增目录与文件
+
+**`agents/` 目录（6 个 Agent 角色提示词）**
+- `agents/master-orchestrator.md` — 主调度 Agent，只读 SKILL.md + session.json + 当前 step artifact，禁止全量读 knowledge/references
+- `agents/topic-scout.md` — 选题侦察员：生成 20 候选 → 查 30 天指纹 → 输出 10 个 S/A/B 级
+- `agents/title-outliner.md` — 标题大纲员：每个选题 5 变体 + 6 段式大纲
+- `agents/article-writer.md` — 全文撰稿员：1500-2500 字科普大白话
+- `agents/image-designer.md` — 配图设计师：Bento Grid 风格封面 + 2-3 张配图
+- `agents/format-publisher.md` — 排版推送员：主题选择 → format.py → 合规硬扫 → 推送草稿箱
+
+**`scripts/` 新增**
+- `scripts/guard.py` — 流程硬校验门控，支持 `new-session / check / confirm / mark-ready / status`
+- `scripts/topic_history.py` — 30 天滚动去重，三维指纹 API + CLI
+- `scripts/interactive/docs_publisher.py` — 云文档 A/B/C 预审自动发布
+
+**`references/` 新增**
+- `references/science-popular-style.md` — 科普大白话写作规范（字数/禁用词/禁用句式/破折号感叹号限额/6 段式结构/自查清单）
+- `references/themes-curated.md` — 10 精选主题 + AUTO_THEME_BY_LINE 内容线到主题的自动映射
+
+### 会话状态与产物目录
+
+- `scripts/interactive/sessions/<SID>.json` — 会话状态单一真相（mode/current_step/steps[].status/replies/docs）
+- `artifacts/<SID>/` — 每一步的产物：step1-topics.json / step2-titles.json / step3-article.md / step4-images/ / step5-media_id.txt
+- `logs/topic-history.jsonl` — 30 天滚动去重指纹库
+
+### 去除 / 迁移
+
+- 删除 SKILL.md 中「阿良」「季老师」「海斌」「曲率」等人名绑定
+- 删除 article-writer 对 `quyu-writing-style` 等个人写作风格的引用
+- 删除 SKILL.md 中「🛑 等待用户确认」markdown 软提醒，改为 guard.py 硬门控 + 飞书反馈卡
+
+### 飞书卡片回调（v8.1 稳定版 → v8.2 并入）
+
+- 长连接（WebSocket）基于 `lark_oapi.ws.Client` + `register_p2_card_action_trigger`
+- 卡片 schema 2.0 + `form` 容器 + `form_action_type: "submit"` + `required: false`
+- 回调 3 秒内响应，写稿走异步，避免飞书超时
+- 灰底锁定卡保留原标题与正文，按钮替换为"已提交"
+
+### SKILL.md 重写
+
+- 从「单入口 4 步工作流」重写为「双入口 + 多 Agent 调度架构」
+- 新增章节：v8.2 核心升级 / 使用方式（双入口）/ 多 Agent 调度架构 / 脚本工具栏 / 30 天去重 / 云文档 A/B/C / 写作风格 / 排版主题 10 精选
+- 精简合规章节（详情迁到 references）
+
+---
+
 ## v7.3（2026-04-17）
 
 **傻瓜式自动化：Agent 自动获取凭据，用户零配置**

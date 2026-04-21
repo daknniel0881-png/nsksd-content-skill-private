@@ -16,11 +16,30 @@
 
 ---
 
+## 快速直达（V9.0）
+
+| 平台 | 一键直达链接 |
+|------|-------------|
+| 飞书开放平台（推荐入口） | https://open.feishu.cn/page/launcher?from=backend_oneclick |
+| 飞书开发者后台 | https://open.feishu.cn/app |
+| 微信公众开发平台 | https://developers.weixin.qq.com/console/product/mp/ |
+| 微信公众平台（管理后台） | https://mp.weixin.qq.com |
+
+**三步授权流（首次 3 分钟搞定）**：
+1. 点击上方直链 → 创建自建应用
+2. 复制 AppID / AppSecret
+3. 粘贴到 `config.json` 与 `scripts/server/.env` → 运行 `bash scripts/setup.sh`（Mac）或 `pwsh scripts/setup.ps1`（Windows）
+
+安装脚本会**自动检测 OS 并注册每日 10:00 定时任务**，不再询问用户。
+
+---
+
 ## 第一部分：飞书机器人配置
 
 ### Step 1：创建飞书自建应用
 
-1. 打开浏览器，访问 **飞书开放平台**：https://open.feishu.cn/app
+1. 打开浏览器，访问 **飞书开放平台一键启动**：https://open.feishu.cn/page/launcher?from=backend_oneclick （推荐）
+   或 **飞书开发者后台**：https://open.feishu.cn/app
 2. 点击右上角 **「创建应用」**
 3. 选择 **「企业自建应用」**
 4. 填写：

@@ -24,3 +24,7 @@ node_modules/
 scripts/interactive/sessions/
 artifacts/
 __pycache__/
+
+# V9.1: PDF原文+导出页面图不入库（本地保留，体积大）
+references/research-papers/2026-04-16-pan-vascular-disease/original.pdf
+references/research-papers/2026-04-16-pan-vascular-disease/figures/

@@ -30,6 +30,12 @@
 
 ## 一、飞书应用配置（首次，约3分钟）
 
+### 1.0 直达链接（V9.0 一键打开）
+
+- **飞书开放平台一键启动（推荐）**：https://open.feishu.cn/page/launcher?from=backend_oneclick
+- 飞书开发者后台：https://open.feishu.cn/app
+- 微信公众开发平台：https://developers.weixin.qq.com/console/product/mp/
+
 ### 1.1 开启事件订阅
 
 1. 打开飞书开发者后台：https://open.feishu.cn/app

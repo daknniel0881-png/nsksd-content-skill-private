@@ -1,9 +1,44 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（v8.4）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。v8.4 新增"日本表述弱化"硬约束（国际关系敏感期合规升级）。v8.3 能力保留：单入口 `/nsksd` + 模式持久化（auto/guided）+ 每天 10 点定时推 Step 1 选题卡 + 封面 1 张 + 内文 5-8 张配图 + 5 子 Agent 串行 + guard.py 硬校验门控 + 30 天去重 + 飞书卡片长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.1）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（v8.4）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.1）
+
+## V9.1 核心升级（本版 · 2026-04-21）
+
+1. **bun + 飞书 CLI 自动安装授权**：`scripts/setup.sh` / `setup.ps1` 检测不到 bun 时自动 `curl https://bun.sh/install`（Mac/Linux）或 `irm bun.sh/install.ps1`（Windows）；自动 `bun install -g @larksuiteoapi/lark-cli`（npm fallback）；从 `.env` 读 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` 自动 `lark config set` 完成授权，全程无交互。文档见 `docs/lark-cli-setup.md`
+2. **飞书多选卡片乱码防护**：`scripts/server/utils/text-sanitizer.ts` 从 7 个源头阻断（BOM / 零宽字符 / CRLF / 控制字符 / UTF-8 字节截断 / option.value 特殊字符 / Content-Type charset）；配套 `text-sanitizer.test.ts` **13/13 测试通过**
+3. **选题库分块重构**：在六维坐标系之上叠加 6 个内容模块 `references/topic-library/{M1-industry-news,M2-nattokinase-research,M3-health-management,M4-cases-stories,M5-policy-regulation,M6-partner-channels}/{YYYY-MM}/`；新增 `scripts/topic-crawler.ts` 按关键词池抓取归档；**M6 招商模块硬约束 8 个角度**（店主形象/咨询能力/会员裂变/组合设计/合规/跨品类/社群/动线话术），禁止单一"卖产品→利润"角度
+4. **4.16 PDF 入库**：《"颠覆性"认知对泛血管病防治影响与实践》原文 + 全文提取 + 选题点拆解 + 关键数据卡 + 图表识别（后台 Agent 处理中，完成后补充归档路径）
+
+## V9.0 核心升级（2026-04-21 早版）
+
+1. **选题重复问题根治**：新增 `references/topic-selection-rules.md`——六维坐标系（M1-M6）+ 三层去重（30天指纹 + 维度配额 + 20个禁用词30天冷冻窗口）+ 日志扩展 dimension/frozen_keywords 字段
+2. **标题专项手册**：新增 `references/title-playbook.md`——10条爆款公式（数字党/反常识/悬念钩子/对立冲突/权威背书/场景代入/指南型/提问型/反转型/情绪共鸣）+ 日生研场景示例矩阵 + 5条雷区硬线 + A/B决策树 + 五维评分（≥85 才进候选池）
+3. **爆款标题语料库**：抓取 24 篇破千/破万阅读量公众号文章，存 `references/wechat-benchmark/raw/` 原文 + `titles-corpus.md` 语料 + `titles-pattern-analysis.md` 共性分析 + `content-pattern-analysis.md` 正文共性（抓取由独立 Agent 执行）
+4. **内部路由表**：新增 `config/routing-table.yaml`——参考曲率 dispatcher 架构，8 条路由（选题/标题/正文/合规/配图/发布/飞书卡片/模式切换），按 trigger 硬编码加载 MD，避免暴力全量 Read references/
+5. **引导界面直链补齐**：`SETUP-GUIDE.md` + `docs/onboarding.md` 补飞书开放平台一键启动链接 `https://open.feishu.cn/page/launcher?from=backend_oneclick` + 微信开发平台 `https://developers.weixin.qq.com/console/product/mp/`
+6. **定时任务自动安装**：`scripts/setup.sh`（Mac · launchd）新增自动 load plist；新增 `scripts/setup.ps1`（Windows · schtasks）一键注册每日 10:00；安装时 OS 自动检测，不再询问用户
+
+## 路由表（V9.0 新增）
+
+调用本 Skill 时，`master-orchestrator` 先读 `config/routing-table.yaml`，按用户 trigger 词命中加载对应 MD 文件，而非全量 Read references/。详见该 yaml 文件。
+
+| 路由 | trigger | 加载 |
+|------|---------|------|
+| R1 选题生成 | 选题 / /nsksd | topic-selection-rules + topic-library + themes-curated + titles-corpus |
+| R2 标题打磨 | 标题 / title | title-playbook + wechat-benchmark/titles-* |
+| R3 正文撰写 | 写文章 / 撰稿 | science-popular-style + content-pattern-analysis + knowledge/核心文档/ |
+| R4 合规审查 | 合规 / 审核 | compliance + compliance-checklist |
+| R5 配图生成 | 配图 / 封面 | generate-image skill |
+| R6 排版推送 | 发布 / 推送 | wechat-autopublish skill |
+| R7 飞书卡片 | 推卡 / 多选卡 | scripts/send-topic-card.ts |
+| R8 模式切换 | 切换到 / reset | scripts/mode_manager.py |
+
+---
+
+
 
 > 品牌：日生研生命科学（浙江）有限公司
 > 产品：NSKSD纳豆激酶（海外原研方 / 国际合作研发机构生产，日生研为中国总代理）

@@ -1,0 +1,142 @@
+# 日生研内容创作 Skill · 内部路由表 (V9.0)
+#
+# 参考架构：~/.claude/agents/dispatcher/routing-table.yaml
+# 目的：按用户触发词硬编码加载对应参考文档，替代"全量 Read references/"的暴力加载。
+# 调用者：master-orchestrator 启动时先读本文件，匹配 trigger 后只加载 load 列表内的文件。
+
+version: "1.0"
+skill: nsksd-content
+description: 日生研NSKSD纳豆激酶自媒体内容工厂 Skill 内部路由表
+updated_at: 2026-04-21
+
+defaults:
+  # 所有路由默认加载的基线文件（不论 trigger 是什么，这几个都必读）
+  base_load:
+    - references/knowledge-base.md           # 企业/产品/临床事实
+    - references/compliance.md               # 合规硬约束
+    - references/compliance-checklist.md     # 合规自查清单
+  # Agent 入口
+  master_agent: agents/master-orchestrator.md
+
+routes:
+  # ========== 路由 1：选题生成 ==========
+  - id: R1-topic-generation
+    trigger:
+      - "选题"
+      - "今日选题"
+      - "daily topics"
+      - "生成选题"
+      - "/nsksd"
+    agent: agents/topic-scout.md
+    load:
+      - references/topic-selection-rules.md          # V9.0 新增：六维坐标系+三层去重
+      - references/topic-library.md                  # 31 主题池
+      - references/themes-curated.md                 # 10 精选主题
+      - references/wechat-benchmark/titles-corpus.md # 爆款标题语料
+    script: scripts/daily-topics.sh
+    dedup_script: scripts/topic_history.py
+
+  # ========== 路由 2：标题打磨 ==========
+  - id: R2-title-crafting
+    trigger:
+      - "标题"
+      - "起标题"
+      - "title"
+      - "优化标题"
+      - "标题候选"
+    agent: agents/title-outliner.md
+    load:
+      - references/title-playbook.md                               # V9.0 新增：10 公式+5 雷区
+      - references/wechat-benchmark/titles-corpus.md               # 24+ 真实爆款标题
+      - references/wechat-benchmark/titles-pattern-analysis.md     # 标题共性分析（抓取完后自动生成）
+
+  # ========== 路由 3：正文撰写 ==========
+  - id: R3-article-drafting
+    trigger:
+      - "写文章"
+      - "写正文"
+      - "drafting"
+      - "撰稿"
+      - "写稿"
+    agent: agents/article-writer.md
+    load:
+      - references/science-popular-style.md                         # 科普大白话风格
+      - references/wechat-benchmark/content-pattern-analysis.md     # 正文共性分析（抓取完后自动生成）
+      - knowledge/核心文档/                                          # 日生研企业介绍 + 临床册子 + 文献合辑
+      - knowledge/2025新闻/                                          # 2025 年央媒报道归档
+    output: artifacts/step3-article.md
+
+  # ========== 路由 4：合规审查 ==========
+  - id: R4-compliance-check
+    trigger:
+      - "合规"
+      - "compliance"
+      - "审核"
+      - "违规"
+      - "扫描"
+    agent: agents/format-publisher.md
+    load:
+      - references/compliance.md
+      - references/compliance-checklist.md
+    script: scripts/guard.py
+
+  # ========== 路由 5：配图生成 ==========
+  - id: R5-image-design
+    trigger:
+      - "配图"
+      - "封面"
+      - "image"
+      - "generate image"
+      - "图片生成"
+    agent: agents/image-designer.md
+    load:
+      - references/science-popular-style.md
+    external_skill: generate-image
+
+  # ========== 路由 6：排版推送（公众号草稿箱） ==========
+  - id: R6-publish
+    trigger:
+      - "发布"
+      - "推送"
+      - "publish"
+      - "草稿箱"
+      - "排版"
+    agent: agents/format-publisher.md
+    load:
+      - references/compliance.md
+      - references/compliance-checklist.md
+    script: scripts/send-topic-card.ts
+    external_skill: wechat-autopublish
+
+  # ========== 路由 7：飞书卡片交互 ==========
+  - id: R7-feishu-card
+    trigger:
+      - "飞书卡片"
+      - "推卡"
+      - "多选卡"
+      - "lark card"
+    script: scripts/send-topic-card.ts
+    server: scripts/server/index.ts
+
+  # ========== 路由 8：模式切换 ==========
+  - id: R8-mode-switch
+    trigger:
+      - "切换到引导模式"
+      - "切换到全自动"
+      - "用 auto"
+      - "用 guided"
+      - "恢复默认"
+      - "reset"
+      - "当前什么模式"
+    script: scripts/mode_manager.py
+
+# ========== 加载规则 ==========
+load_rules:
+  max_files_per_route: 8          # 单次路由最多加载 8 个文件，防止上下文爆炸
+  skip_if_missing: true            # 文件不存在时跳过不报错（wechat-benchmark 抓取中）
+  log_path: logs/routing.jsonl     # 每次路由命中写入日志，供 evolution-officer 日结分析
+
+# ========== 降级路径 ==========
+fallback:
+  no_match: "按用户原意加载 SKILL.md + base_load，交给 master-orchestrator 判断"
+  load_error: "记录到 logs/routing.jsonl 的 error 字段，继续执行"

@@ -1,5 +1,27 @@
 # 更新日志
 
+## [V9.4] - 2026-04-21
+
+### 解耦
+- 彻底与 wechat-autopublish skill 解耦，nsksd 完全独立运行
+- 新增 references/nsksd-writing-style.md（大白话+专业，不带个人签名句）
+- 清 4 处 quyu-writing-style 残留引用（trigger_watcher.sh / lark_ws_listener.py / send_notify.py）
+
+### 新增
+- docs/playbooks/ 做事说明书矩阵（7 个文件）：wechat-publish / feishu-card / feishu-doc / cover-image / data-verification / style-card + README 总索引
+- scripts/setup_cli.py CLI 引导首次安装填凭证（chmod 600）
+- config.example.json 完整模板，含 preferred_theme 字段和中文行内注释
+
+### 变更
+- trigger_watcher.sh Step5 改走 nsksd_publish.py（不再调 wechat-autopublish）
+- run_nsksd_daily.sh 提示词去版本话术，接入热点文件，补严禁捏造数据条款
+- SKILL.md V9.1 → V9.4，新增"遇到问题翻说明书"索引段
+
+### 安全
+- 5 处硬编码凭证已清空（V9.3 继承）：config.json / run_nsksd_daily.sh / lark_ws_listener.py / send_notify.py
+
+---
+
 ## V9.1（2026-04-21）
 
 **自动装 bun+lark CLI / 飞书乱码防护 / 选题库分块归档 / 4.16 PDF 入库**

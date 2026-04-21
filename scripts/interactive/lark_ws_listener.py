@@ -17,7 +17,11 @@
 import json
 import os
 import sys
+import time
 import pathlib
+import threading
+import urllib.request
+import urllib.error
 from datetime import datetime
 
 import lark_oapi as lark
@@ -32,8 +36,109 @@ SESSIONS_DIR = SCRIPT_DIR / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
 LOG_FILE = SCRIPT_DIR / "events.log"
 
-APP_ID = os.environ.get("LARK_APP_ID", "cli_a939b5f909f81cc1")
-APP_SECRET = os.environ.get("LARK_APP_SECRET", "gabdmk0ZZrYWKa8eOGsCjs3Vfo03vg3M")
+APP_ID = os.environ.get("LARK_APP_ID") or ""
+APP_SECRET = os.environ.get("LARK_APP_SECRET") or ""
+if not APP_ID or not APP_SECRET:
+    raise RuntimeError("LARK_APP_ID / LARK_APP_SECRET 未设置，请配置 ~/.nsksd-content/config.json 或 export 环境变量")
+
+TRIGGERS_DIR = SCRIPT_DIR / "triggers"
+TRIGGERS_DIR.mkdir(exist_ok=True)
+
+# tenant_access_token 缓存(2 小时 TTL)
+_TOKEN_CACHE = {"token": None, "expires_at": 0}
+
+
+def get_tenant_token() -> str:
+    """飞书 tenant_access_token,2h TTL 缓存"""
+    if _TOKEN_CACHE["token"] and time.time() < _TOKEN_CACHE["expires_at"]:
+        return _TOKEN_CACHE["token"]
+    req = urllib.request.Request(
+        "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    token = data.get("tenant_access_token")
+    if not token:
+        raise RuntimeError(f"获取 tenant_token 失败: {data}")
+    _TOKEN_CACHE["token"] = token
+    _TOKEN_CACHE["expires_at"] = time.time() + 7000  # 比 7200 留点余量
+    return token
+
+
+def send_follow_up_card(open_chat_id: str, card: dict) -> dict:
+    """异步发新卡片到同一会话(用于通知类卡片,不占用 callback return)"""
+    try:
+        token = get_tenant_token()
+        payload = {
+            "receive_id": open_chat_id,
+            "msg_type": "interactive",
+            "content": json.dumps(card, ensure_ascii=False),
+        }
+        req = urllib.request.Request(
+            "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"Bearer {token}"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        log(f"[follow-up] send_result code={result.get('code')} msg_id={result.get('data',{}).get('message_id')}")
+        return result
+    except Exception as e:
+        log(f"[follow-up 失败] {e}")
+        return {"error": str(e)}
+
+
+def build_writing_notify_card(chosen_titles: list) -> dict:
+    """⏳ 正在撰写中 通知卡(yellow header, 无交互)"""
+    titles_md = "\n".join(f"• {t}" for t in chosen_titles) or "(无)"
+    return {
+        "schema": "2.0",
+        "config": {"update_multi": True, "width_mode": "default"},
+        "header": {
+            "template": "yellow",
+            "title": {"tag": "plain_text",
+                      "content": f"⏳ 已接单 · 正在撰写 {len(chosen_titles)} 篇"},
+            "subtitle": {"tag": "plain_text",
+                         "content": "Claude Code 流水线启动,预计 5-8 分钟/篇"},
+        },
+        "body": {
+            "elements": [
+                {"tag": "markdown",
+                 "content": f"**本次撰写任务**\n\n{titles_md}"},
+                {"tag": "hr"},
+                {"tag": "markdown",
+                 "content": "**流水线 5 步**\n\n"
+                            "1️⃣ title-outliner · 标题与大纲\n"
+                            "2️⃣ article-writer · 正文(nsksd-writing-style)\n"
+                            "3️⃣ quyu-view-checker · 禁用词扫描\n"
+                            "4️⃣ image-designer · Bento Grid 配图\n"
+                            "5️⃣ format-publisher · 推送公众号草稿箱\n\n"
+                            "✅ 完成后会推「已推送草稿箱」卡片"},
+            ]
+        },
+    }
+
+
+def write_trigger_file(session_id: str, chosen_titles: list, chosen_ids: list,
+                        open_chat_id: str):
+    """写 trigger 文件,主 Agent 轮询此目录就能接单跑流水线"""
+    trigger_path = TRIGGERS_DIR / f"{session_id}.trigger"
+    payload = {
+        "session_id": session_id,
+        "chosen_ids": chosen_ids,
+        "chosen_titles": chosen_titles,
+        "open_chat_id": open_chat_id,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "status": "pending",
+    }
+    trigger_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+    log(f"[trigger] 写入 {trigger_path.name}")
 
 
 def log(msg: str):
@@ -44,8 +149,11 @@ def log(msg: str):
 
 
 def write_session_reply(session_id: str, step: str, feedback: str,
-                         button_value: dict, raw_event: dict):
-    """把用户回复写入会话 JSON,主 Agent 轮询此文件可拿到结果"""
+                         form_value: dict, button_value: dict, raw_event: dict):
+    """把用户回复写入会话 JSON,主 Agent 轮询此文件可拿到结果
+
+    form_value 里包含所有表单字段(choices 多选 / user_feedback 文本 等),整体落盘
+    """
     path = SESSIONS_DIR / f"{session_id}.json"
     data = {}
     if path.exists():
@@ -53,54 +161,78 @@ def write_session_reply(session_id: str, step: str, feedback: str,
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             data = {}
+    # 多选字段:支持 choices(multi_select) 或 checker_* 系列(checker 平铺)
+    choices = form_value.get("choices", [])
+    if not choices:
+        # checker 模式:收集所有 name 以 opt_ 开头且值为 True 的字段
+        choices = [k.replace("opt_", "") for k, v in form_value.items()
+                   if k.startswith("opt_") and v is True]
     data.setdefault("replies", []).append({
         "step": step,
         "feedback": feedback,
+        "choices": choices,
+        "form_value": form_value,
         "button_value": button_value,
         "received_at": datetime.now().isoformat(timespec="seconds"),
     })
     data["latest_step"] = step
     data["latest_feedback"] = feedback
+    data["latest_choices"] = choices
+    data["latest_form_value"] = form_value
     data["latest_button_value"] = button_value
     data["status"] = "confirmed"
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    log(f"[session 写入] {path.name} step={step}")
+    log(f"[session 写入] {path.name} step={step} choices={choices}")
 
 
-def build_locked_card(original_header: dict, original_body_md: str,
-                       feedback: str, disabled_label: str = "✅ 已提交 · Claude Code 处理中") -> dict:
-    """锁定版卡片:保留原 header 标题文字 + 原正文 + 灰化 + 展示输入 + 禁用按钮"""
-    header_title = "已锁定"
-    header_subtitle = "已提交 · 不可再交互"
-    if original_header:
-        if isinstance(original_header.get("title"), dict):
-            header_title = original_header["title"].get("content", header_title)
-        if isinstance(original_header.get("subtitle"), dict):
-            header_subtitle = original_header["subtitle"].get("content", header_subtitle)
+def build_locked_choice_card(options: list, form_value: dict,
+                              original_title: str = "") -> dict:
+    """multi_choice_checker_card 的锁定版
 
+    Args:
+        options: 原始选项列表 [{value, text}, ...] 按原序传入,保证渲染顺序稳定
+        form_value: 飞书回传的表单值 {opt_{value}: bool, ...}
+        original_title: 原卡片 header title,保持一致只加"已锁定"后缀
+    """
+    # 按原 options 顺序渲染,每个 checker 保留原 text,前面加 ✅/⬜ 标记
+    checker_elements = []
+    chosen_titles = []
+    for opt in options:
+        opt_key = f"opt_{opt['value']}"
+        picked = bool(form_value.get(opt_key, False))
+        mark = "✅" if picked else "⬜"
+        checker_elements.append({
+            "tag": "checker",
+            "text": {"tag": "lark_md",
+                     "content": f"{mark}  {opt['text']}"},
+            "checked": picked,
+            "disabled": True,
+        })
+        if picked:
+            chosen_titles.append(opt["text"])
+
+    chosen_md = "\n".join(f"• {t}" for t in chosen_titles) if chosen_titles \
+        else "(未勾选任何选项)"
+    header_title = f"{original_title} · 已锁定" if original_title \
+        else "日生研NSKSD · 选题多选 · 已锁定"
     return {
         "schema": "2.0",
         "config": {"update_multi": True, "width_mode": "default"},
         "header": {
             "template": "grey",
-            "title": {"tag": "plain_text", "content": f"{header_title} · 已锁定"},
-            "subtitle": {"tag": "plain_text", "content": header_subtitle},
+            "title": {"tag": "plain_text", "content": header_title},
+            "subtitle": {"tag": "plain_text",
+                         "content": f"已提交 {len(chosen_titles)} 个选题 · 不可再交互"},
         },
         "body": {
             "elements": [
-                {"tag": "markdown", "content": original_body_md or "(原内容)"},
+                *checker_elements,
                 {"tag": "hr"},
-                {
-                    "tag": "markdown",
-                    "content": f"**修改意见**(已提交)\n\n> {feedback if feedback else '(未填写)'}",
-                },
-                {
-                    "tag": "button",
-                    "text": {"tag": "plain_text", "content": disabled_label},
-                    "type": "default",
-                    "disabled": True,
-                    "width": "default",
-                },
+                {"tag": "markdown",
+                 "content": f"**✅ 已选择**\n\n{chosen_md}\n\n⏳ Claude Code 已接单,进入撰写流水线"},
+                {"tag": "button",
+                 "text": {"tag": "plain_text", "content": "✅ 已提交 · 处理中"},
+                 "type": "default", "disabled": True, "width": "fill"},
             ]
         },
     }
@@ -114,6 +246,8 @@ def do_card_action_trigger(data: P2CardActionTrigger) -> P2CardActionTriggerResp
 
     feedback = ""
     button_value = {}
+    form_value = {}
+    event = {}
     session_id = "default"
     step = "unknown"
     original_header = {}
@@ -137,12 +271,61 @@ def do_card_action_trigger(data: P2CardActionTrigger) -> P2CardActionTriggerResp
         log(f"[最终输入] '{feedback}' | session={session_id} | step={step}")
 
         # 写入会话
-        write_session_reply(session_id, step, feedback, button_value, d)
+        write_session_reply(session_id, step, feedback, form_value, button_value, d)
     except Exception as e:
         log(f"[解析失败] {e}")
 
-    locked = build_locked_card(original_header, original_body_md, feedback)
-    toast_msg = f"✅ 已收到: {feedback[:30]}" if feedback else "✅ 已提交(空内容)"
+    # 按卡片类型分流锁定卡
+    # 多选卡:form_value 里有 opt_ 开头的 checker 字段
+    # feedback 卡:form_value 里有 user_feedback 字段
+    is_choice_card = any(k.startswith("opt_") for k in form_value.keys())
+    if is_choice_card:
+        # 从 button_value 里拿回原 options(发卡时塞进来的,保证原序原文案)
+        options = button_value.get("options") or []
+        original_title = button_value.get("original_title", "")
+        # 如果没传 options(旧卡片兼容),降级用 opt_ id 渲染
+        if not options:
+            options = [{"value": k.replace("opt_", ""), "text": k.replace("opt_", "")}
+                       for k in sorted(form_value.keys()) if k.startswith("opt_")]
+
+        # 计算选中的选题(按原序)
+        chosen_ids = []
+        chosen_titles = []
+        for opt in options:
+            if form_value.get(f"opt_{opt['value']}"):
+                chosen_ids.append(opt["value"])
+                chosen_titles.append(opt["text"])
+
+        locked = build_locked_choice_card(options, form_value, original_title)
+        toast_msg = (f"✅ 已收到 {len(chosen_ids)} 个选题,正在撰写"
+                     if chosen_ids else "⚠️ 未勾选任何选题")
+
+        # 异步触发:推「⏳ 正在撰写」通知卡 + 写 trigger 文件
+        if chosen_ids:
+            open_chat_id = (event.get("context", {}) or {}).get("open_chat_id", "")
+            write_trigger_file(session_id, chosen_titles, chosen_ids, open_chat_id)
+            if open_chat_id:
+                notify = build_writing_notify_card(chosen_titles)
+                # 异步发,不阻塞 callback return
+                threading.Thread(
+                    target=send_follow_up_card,
+                    args=(open_chat_id, notify),
+                    daemon=True,
+                ).start()
+    else:
+        # v4 定版:只处理多选卡,不再支持 feedback 卡
+        locked = {
+            "schema": "2.0",
+            "config": {"update_multi": True},
+            "header": {
+                "template": "red",
+                "title": {"tag": "plain_text", "content": "⚠️ 未识别的卡片类型"},
+            },
+            "body": {"elements": [{"tag": "markdown",
+                                    "content": "v4 起只支持多选卡,请检查卡片模板"}]},
+        }
+        toast_msg = "⚠️ 未识别卡片类型"
+
     return P2CardActionTriggerResponse({
         "toast": {"type": "success", "content": toast_msg},
         "card": {"type": "raw", "data": locked},

@@ -1,11 +1,19 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.1）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.4）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.1）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.4）
 
-## V9.1 核心升级（本版 · 2026-04-21）
+## V9.4 核心升级（本版 · 2026-04-21）
+
+1. **彻底与 wechat-autopublish 解耦**：清除 4 处 quyu-writing-style 残留引用，trigger_watcher Step5 改走 `nsksd_publish.py` 本地流水线
+2. **独立写作规则**：新增 `references/nsksd-writing-style.md`，大白话+专业，不引任何个人写作风格
+3. **做事说明书矩阵**：新增 `docs/playbooks/` 7 个文件（wechat-publish / feishu-card / feishu-doc / cover-image / data-verification / style-card + README 总索引）
+4. **CLI 引导配置**：新增 `scripts/setup_cli.py`，交互式收凭证，chmod 600，零硬编码
+5. **config.example.json 完整化**：含 preferred_theme 字段和中文行内说明
+
+## V9.1 核心升级（2026-04-21 早版）
 
 1. **bun + 飞书 CLI 自动安装授权**：`scripts/setup.sh` / `setup.ps1` 检测不到 bun 时自动 `curl https://bun.sh/install`（Mac/Linux）或 `irm bun.sh/install.ps1`（Windows）；自动 `bun install -g @larksuiteoapi/lark-cli`（npm fallback）；从 `.env` 读 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` 自动 `lark config set` 完成授权，全程无交互。文档见 `docs/lark-cli-setup.md`
 2. **飞书多选卡片乱码防护**：`scripts/server/utils/text-sanitizer.ts` 从 7 个源头阻断（BOM / 零宽字符 / CRLF / 控制字符 / UTF-8 字节截断 / option.value 特殊字符 / Content-Type charset）；配套 `text-sanitizer.test.ts` **13/13 测试通过**
@@ -321,8 +329,27 @@ python3 scripts/mode_manager.py set --mode auto --as-default
 
 ---
 
+## 遇到问题翻说明书
+
+`docs/playbooks/` 目录下有 7 个做事说明书，遇到问题先查：
+
+| 文件 | 覆盖场景 |
+|------|----------|
+| `docs/playbooks/README.md` | 总索引，快速定位该翻哪个说明书 |
+| `docs/playbooks/wechat-publish.md` | 公众号推送全流程、403/40164 报错、图片宽度、mock 模式 |
+| `docs/playbooks/feishu-card.md` | 飞书卡片乱码防护、多选卡 schema 2.0、trigger 文件流、chat_id 获取 |
+| `docs/playbooks/feishu-doc.md` | 飞书云文档保底、lark-cli 语法、Markdown 格式规则、权限给 chat_id |
+| `docs/playbooks/cover-image.md` | 配图生成、Bento Grid 风格、尺寸 900x500、width=auto 保持 |
+| `docs/playbooks/data-verification.md` | 数据核查步骤、WebFetch 验证 URL、找不到来源的降级写法 |
+| `docs/playbooks/style-card.md` | 排版主题选择卡、10 推荐主题表、preferred_theme 配置、"查看全部 31 个"展开 |
+
+---
+
 ## 版本历史
 
+- V9.4（2026-04-21）：彻底与 wechat-autopublish 解耦 + docs/playbooks 说明书矩阵 + CLI 引导配置
+- V9.1（2026-04-21）：bun+飞书CLI 自动安装授权 + 飞书乱码防护 + 选题库分块重构
+- V9.0（2026-04-21）：选题六维坐标系 + 三层去重 + 标题手册 + 爆款语料库 + 路由表
 - v8.4（2026-04-20）：日本表述弱化硬约束（国际关系敏感期合规升级）
 - v8.3（2026-04-20）：单入口 + 模式持久化 + 定时 Step 1 + 配图 5-8 张
 - v8.2（2026-04-15）：多 Agent 调度 + guard 硬门控 + 30 天去重 + 双入口

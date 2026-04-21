@@ -1,0 +1,42 @@
+{
+  "_comment_root": "此文件是配置模板。真实凭证写 ~/.nsksd-content/config.json（chmod 600），仓库只保留本模板，零硬编码。首次安装运行 python3 scripts/setup_cli.py 交互式填写。",
+
+  "wechat": {
+    "_comment_wechat": "微信公众号凭证，在公众平台 -> 开发 -> 基本配置 获取",
+    "app_id": "REPLACE_ME",
+    "app_secret": "REPLACE_ME",
+    "_comment_author": "文章作者名，留空则显示公众号默认作者",
+    "author": ""
+  },
+
+  "lark": {
+    "_comment_lark": "飞书机器人凭证，在飞书开放平台 -> 应用管理 -> 凭证与基础信息 获取",
+    "app_id": "REPLACE_ME",
+    "app_secret": "REPLACE_ME",
+    "_comment_target_open_id": "接收通知的个人 open_id，oc_xxx 格式",
+    "target_open_id": "REPLACE_ME",
+    "_comment_customer_open_chat_id": "客户群 chat_id，oc_xxx 格式，用于推送选题卡和飞书保底文档权限",
+    "customer_open_chat_id": "REPLACE_ME"
+  },
+
+  "settings": {
+    "_comment_settings": "行为偏好设置",
+    "_comment_preferred_theme": "默认排版主题，可选值见 references/themes-curated.md，推荐 mint-fresh",
+    "preferred_theme": "mint-fresh",
+    "auto_open_browser": false,
+    "_comment_image_count": "配图数量配置",
+    "image_count": {
+      "cover": 1,
+      "inline_min": 5,
+      "inline_max": 8
+    }
+  },
+
+  "paths": {
+    "_comment_paths": "文件路径配置",
+    "_comment_output_dir": "生成的 HTML 和图片的临时输出目录",
+    "output_dir": "/tmp/nsksd-output",
+    "_comment_log_dir": "日志目录，留空则使用 skill 目录下的 logs/",
+    "log_dir": ""
+  }
+}

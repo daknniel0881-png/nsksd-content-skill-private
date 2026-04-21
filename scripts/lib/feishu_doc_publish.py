@@ -74,24 +74,26 @@ def create_fallback_doc(title: str, html_or_md: str) -> Optional[str]:
     if not cli:
         return None
     try:
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8",
-            prefix="nsksd-fallback-", suffix=".md", delete=False
-        )
-        tmp.write(f"# {title}\n\n{html_or_md}")
-        tmp.close()
+        # lark-cli 1.0.14+ 要求 --markdown @file 是相对路径，不能用绝对路径
+        # 解法：在临时目录里创建文件，cwd 设为该目录，用相对名
+        tmp_dir = tempfile.mkdtemp(prefix="nsksd-fallback-")
+        rel_name = "article.md"
+        abs_path = Path(tmp_dir) / rel_name
+        abs_path.write_text(f"# {title}\n\n{html_or_md}", encoding="utf-8")
         try:
             result = subprocess.run(
                 [cli, "docs", "+create",
                  "--title", title,
-                 "--markdown", f"@{tmp.name}",
+                 "--markdown", f"@{rel_name}",
                  "--as", "bot",
-                 "-q", ".data.url // .url // empty"],
-                capture_output=True, text=True, timeout=30
+                 "-q", ".data.doc_url // .data.url // .url // empty"],
+                capture_output=True, text=True, timeout=30,
+                cwd=tmp_dir,
             )
         finally:
             try:
-                Path(tmp.name).unlink()
+                abs_path.unlink()
+                Path(tmp_dir).rmdir()
             except OSError:
                 pass
         if result.returncode != 0:
@@ -103,6 +105,7 @@ def create_fallback_doc(title: str, html_or_md: str) -> Optional[str]:
         try:
             data = json.loads(result.stdout)
             return (data.get("url")
+                    or data.get("data", {}).get("doc_url")
                     or data.get("data", {}).get("url"))
         except json.JSONDecodeError:
             return None

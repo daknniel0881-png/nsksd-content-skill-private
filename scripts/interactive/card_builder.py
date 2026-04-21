@@ -1,87 +1,71 @@
-"""日生研内容创作 · 飞书交互卡片构建器
+"""日生研 NSKSD · 飞书卡片构建器(v4 定版,唯一入口)
 
-提供三类卡片模板:
-1. feedback_card()   — 带输入框的修改意见卡(打磨模式每步都用)
-2. multi_choice_card() — 多选卡(选题勾选 / 排版主题精选)
-3. confirm_card()    — 确认推送卡(最终步)
+只保留三种卡片:
+1. multi_choice_card()  — 每日多选卡(选项并列平铺 + 点选 + 提交)
+2. notify_card()        — 纯通知卡(无交互,撰写中/已发布 等状态)
+3. build_locked_choice_card() — 提交后的锁定态(listener 内部复用)
 
-所有卡片都遵循:
-- schema 2.0
-- form 容器 + form_action_type=submit 按钮(input 值才能回传)
-- button value 带 session_id + step,方便监听器写对会话
-
-配套使用:
-    from card_builder import feedback_card
-    card = feedback_card(
-        session_id="2026-04-20-001",
-        step="title_outline",
-        title="第2步 · 标题与大纲确认",
-        preview_md="已生成标题:XXX\\n大纲:...",
-        doc_url="https://...feishu.cn/docx/xxx"
-    )
-    # 用 lark-cli 发卡:
-    # lark-cli im +messages-send --msg-type interactive --content '{json}'
+历史设计:以前还有 feedback_card / confirm_card / multi_choice_card(下拉版)
+等多种形态。v4 起全部废弃,每日推送统一只用 multi_choice_card(v4 平铺版)。
 """
 import json
 from typing import Optional
 
 
-def feedback_card(
+# ============ 1. 每日多选卡(唯一入口) ============
+
+def multi_choice_card(
     session_id: str,
     step: str,
     title: str,
-    preview_md: str,
-    doc_url: Optional[str] = None,
-    subtitle: str = "请输入修改意见后提交,或留空表示认可",
-    submit_label: str = "✅ 提交修改意见",
-    header_template: str = "blue",
+    intro_md: str,
+    options: list,
+    submit_label: str = "✅ 确认选择 · 开始撰写",
+    header_template: str = "turquoise",
+    subtitle: str = "勾选选题后,点底部按钮一次提交",
 ) -> dict:
-    """打磨模式 · 带输入框的修改意见卡"""
-    elements = [
-        {"tag": "markdown", "content": preview_md},
+    """每日多选卡(v4 定版 · 选项并列平铺 · 点选+提交)
+
+    Args:
+        session_id: 会话唯一 id(例 2026-04-21-ffc-daily)
+        step: 步骤标识(例 topic_select)
+        title: 卡片标题
+        intro_md: 引导语 Markdown
+        options: 选项列表 [{value, text}, ...] 按原序渲染(必须 >= 10)
+        submit_label: 提交按钮文案
+        header_template: turquoise(原始)/grey(锁定)/yellow(撰写中)/green(完成)
+        subtitle: 副标题
+
+    关键设计:
+    - 每个 option 渲染为独立 checker 元素(name=opt_{value})
+    - 提交按钮 form_action_type=submit + behaviors[callback]
+    - behaviors.value 内塞入 options + original_title,供锁定卡反查原序原文案
+    - 所有字段写死不允许调用方改 JSON 结构
+
+    选项数量下限 10(曲率硬约束,少于 10 个抛错)
+    """
+    if len(options) < 10:
+        raise ValueError(f"每日多选卡选项必须 >= 10 个,当前 {len(options)}")
+
+    # 按原序渲染 checker(核心:绝不依赖 form_value 字典序)
+    checker_elements = [
+        {
+            "tag": "checker",
+            "name": f"opt_{o['value']}",
+            "text": {"tag": "lark_md", "content": o["text"]},
+            "checked": False,
+        }
+        for o in options
     ]
-    if doc_url:
-        elements.append({
-            "tag": "button",
-            "text": {"tag": "plain_text", "content": "📄 打开云文档预览"},
-            "type": "default",
-            "width": "default",
-            "multi_url": {"url": doc_url, "pc_url": doc_url, "android_url": doc_url, "ios_url": doc_url},
-        })
-    elements.append({"tag": "hr"})
-    elements.append({
-        "tag": "form",
-        "name": "feedback_form",
-        "elements": [
-            {
-                "tag": "input",
-                "name": "user_feedback",
-                "placeholder": {"tag": "plain_text", "content": "请输入修改意见(留空表示认可,直接进入下一步)"},
-                "default_value": "",
-                "width": "fill",
-                "required": False,
-                "label": {"tag": "plain_text", "content": "修改意见"},
-                "label_position": "top",
-            },
-            {
-                "tag": "button",
-                "text": {"tag": "plain_text", "content": submit_label},
-                "type": "primary",
-                "width": "default",
-                "form_action_type": "submit",
-                "name": "submit_btn",
-                "behaviors": [{
-                    "type": "callback",
-                    "value": {
-                        "action": "submit",
-                        "session_id": session_id,
-                        "step": step,
-                        "_original_body_md": preview_md,
-                    },
-                }],
-            },
-        ],
-    })
+
+    # button.behaviors.value:塞入 options 便于锁定卡反查
+    button_value = {
+        "action": "choose",
+        "session_id": session_id,
+        "step": step,
+        "options": options,
+        "original_title": title,
+    }
 
     return {
         "schema": "2.0",
@@ -91,41 +75,6 @@ def feedback_card(
             "title": {"tag": "plain_text", "content": title},
             "subtitle": {"tag": "plain_text", "content": subtitle},
         },
-        "body": {"elements": elements},
-    }
-
-
-def multi_choice_card(
-    session_id: str,
-    step: str,
-    title: str,
-    intro_md: str,
-    options: list,
-    multi: bool = True,
-    submit_label: str = "✅ 确认选择",
-    header_template: str = "turquoise",
-) -> dict:
-    """多选卡 · 选题勾选 / 排版主题精选
-
-    options: [{"value": "topic_1", "text": "选题1标题"}, ...]
-    """
-    select_element = {
-        "tag": "select_static" if not multi else "multi_select_static",
-        "name": "choices",
-        "placeholder": {"tag": "plain_text", "content": "请选择..."},
-        "options": [
-            {"text": {"tag": "plain_text", "content": o["text"]}, "value": o["value"]}
-            for o in options
-        ],
-    }
-    return {
-        "schema": "2.0",
-        "config": {"update_multi": True, "width_mode": "default"},
-        "header": {
-            "template": header_template,
-            "title": {"tag": "plain_text", "content": title},
-            "subtitle": {"tag": "plain_text", "content": "勾选后点提交"},
-        },
         "body": {
             "elements": [
                 {"tag": "markdown", "content": intro_md},
@@ -134,21 +83,16 @@ def multi_choice_card(
                     "tag": "form",
                     "name": "choice_form",
                     "elements": [
-                        select_element,
+                        *checker_elements,
+                        {"tag": "hr"},
                         {
                             "tag": "button",
                             "text": {"tag": "plain_text", "content": submit_label},
                             "type": "primary",
+                            "width": "fill",
                             "form_action_type": "submit",
                             "name": "submit_btn",
-                            "behaviors": [{
-                                "type": "callback",
-                                "value": {
-                                    "action": "choose",
-                                    "session_id": session_id,
-                                    "step": step,
-                                },
-                            }],
+                            "behaviors": [{"type": "callback", "value": button_value}],
                         },
                     ],
                 },
@@ -157,101 +101,118 @@ def multi_choice_card(
     }
 
 
-def confirm_card(
-    session_id: str,
-    step: str,
+# ============ 2. 通知卡(撰写中/已发布 等状态) ============
+
+def notify_card(
     title: str,
-    summary_md: str,
-    confirm_label: str = "🚀 推送到草稿箱",
-    cancel_label: str = "取消",
-    header_template: str = "red",
+    content_md: str,
+    header_template: str = "blue",
+    subtitle: str = "",
 ) -> dict:
-    """最终确认卡 · 一键推送 / 取消"""
+    """纯通知卡 · 无交互
+
+    用途:
+    - 撰写中    → header_template="yellow"
+    - 已推送草稿 → header_template="green"
+    - 出错       → header_template="red"
+    """
+    header = {
+        "template": header_template,
+        "title": {"tag": "plain_text", "content": title},
+    }
+    if subtitle:
+        header["subtitle"] = {"tag": "plain_text", "content": subtitle}
+    return {
+        "schema": "2.0",
+        "config": {"update_multi": True, "width_mode": "default"},
+        "header": header,
+        "body": {
+            "elements": [
+                {"tag": "markdown", "content": content_md},
+            ]
+        },
+    }
+
+
+# ============ 3. 锁定态卡(提交后替换原消息) ============
+
+def build_locked_choice_card(
+    options: list,
+    form_value: dict,
+    original_title: str = "",
+) -> dict:
+    """多选卡的锁定态 · 保留原序原文案 + 灰化 + 标注已选
+
+    listener 在收到 submit callback 后 return 这张卡替换原消息。
+    绝对不依赖 form_value 字典序(坑 1:sorted 会让 topic_10 跳到 topic_2 前)。
+    """
+    checker_elements = []
+    chosen_titles = []
+    for opt in options:
+        opt_key = f"opt_{opt['value']}"
+        picked = bool(form_value.get(opt_key, False))
+        mark = "✅" if picked else "⬜"
+        checker_elements.append({
+            "tag": "checker",
+            "text": {"tag": "lark_md", "content": f"{mark}  {opt['text']}"},
+            "checked": picked,
+            "disabled": True,
+        })
+        if picked:
+            chosen_titles.append(opt["text"])
+
+    chosen_md = "\n".join(f"• {t}" for t in chosen_titles) if chosen_titles \
+        else "(未勾选任何选项)"
+    header_title = f"{original_title} · 已锁定" if original_title \
+        else "日生研NSKSD · 选题多选 · 已锁定"
     return {
         "schema": "2.0",
         "config": {"update_multi": True, "width_mode": "default"},
         "header": {
-            "template": header_template,
-            "title": {"tag": "plain_text", "content": title},
-            "subtitle": {"tag": "plain_text", "content": "请确认内容后推送"},
+            "template": "grey",
+            "title": {"tag": "plain_text", "content": header_title},
+            "subtitle": {"tag": "plain_text",
+                         "content": f"已提交 {len(chosen_titles)} 个选题 · 不可再交互"},
         },
         "body": {
             "elements": [
-                {"tag": "markdown", "content": summary_md},
+                *checker_elements,
                 {"tag": "hr"},
-                {
-                    "tag": "column_set",
-                    "columns": [
-                        {
-                            "tag": "column", "width": "weighted", "weight": 1,
-                            "elements": [{
-                                "tag": "button",
-                                "text": {"tag": "plain_text", "content": confirm_label},
-                                "type": "danger",
-                                "behaviors": [{
-                                    "type": "callback",
-                                    "value": {
-                                        "action": "confirm",
-                                        "session_id": session_id,
-                                        "step": step,
-                                    },
-                                }],
-                            }],
-                        },
-                        {
-                            "tag": "column", "width": "weighted", "weight": 1,
-                            "elements": [{
-                                "tag": "button",
-                                "text": {"tag": "plain_text", "content": cancel_label},
-                                "type": "default",
-                                "behaviors": [{
-                                    "type": "callback",
-                                    "value": {
-                                        "action": "cancel",
-                                        "session_id": session_id,
-                                        "step": step,
-                                    },
-                                }],
-                            }],
-                        },
-                    ],
-                },
+                {"tag": "markdown",
+                 "content": f"**✅ 已选择**\n\n{chosen_md}\n\n⏳ Claude Code 已接单,进入撰写流水线"},
+                {"tag": "button",
+                 "text": {"tag": "plain_text", "content": "✅ 已提交 · 处理中"},
+                 "type": "default", "disabled": True, "width": "fill"},
             ]
         },
     }
 
 
-# ---- CLI 测试入口 ----
+# ============ CLI 测试入口 ============
+
 if __name__ == "__main__":
     import sys
-    card_type = sys.argv[1] if len(sys.argv) > 1 else "feedback"
-    if card_type == "feedback":
-        card = feedback_card(
-            session_id="test-001",
-            step="title_outline",
-            title="第2步 · 标题与大纲",
-            preview_md="**标题**: 测试标题\n\n**大纲**:\n1. 一级\n2. 二级",
-            doc_url="https://example.feishu.cn/docx/test",
-        )
-    elif card_type == "choice":
+    kind = sys.argv[1] if len(sys.argv) > 1 else "multi"
+    if kind == "multi":
+        opts = [{"value": f"t{i}", "text": f"示例选题 {i}"} for i in range(1, 11)]
         card = multi_choice_card(
             session_id="test-001",
             step="topic_select",
-            title="第1步 · 选题勾选",
-            intro_md="请勾选你要创作的选题(1-3 个):",
-            options=[
-                {"value": "t1", "text": "选题1:AI 如何改变..."},
-                {"value": "t2", "text": "选题2:某某新研究..."},
-            ],
+            title="日生研NSKSD · 每日选题多选",
+            intro_md="💡 勾选你要创作的选题",
+            options=opts,
         )
-    elif card_type == "confirm":
-        card = confirm_card(
-            session_id="test-001",
-            step="publish",
-            title="最终确认 · 推送草稿箱",
-            summary_md="标题:测试\n字数:2500\n配图:3",
+    elif kind == "notify":
+        card = notify_card(
+            title="⏳ 正在撰写 3 篇",
+            content_md="• 选题 A\n• 选题 B\n• 选题 C",
+            header_template="yellow",
         )
+    elif kind == "locked":
+        opts = [{"value": f"t{i}", "text": f"示例选题 {i}"} for i in range(1, 11)]
+        fv = {f"opt_t{i}": (i in [1, 3, 5]) for i in range(1, 11)}
+        card = build_locked_choice_card(opts, fv, "日生研NSKSD · 每日选题多选")
     else:
-        print(f"未知类型: {card_type}")
+        print(f"未知类型: {kind}")
         sys.exit(1)
     print(json.dumps(card, ensure_ascii=False, indent=2))

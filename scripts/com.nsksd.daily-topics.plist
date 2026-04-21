@@ -28,8 +28,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <!-- EDIT: 替换为你的 Skill 安装路径 -->
-        <string>/tmp/nsksd-content-skill/scripts/run_nsksd_daily.sh</string>
+        <string>/Users/suze/.claude/skills/nsksd-content/scripts/run_nsksd_daily.sh</string>
     </array>
 
     <!-- 每天早上10:00触发（本地时间） -->
@@ -55,16 +54,13 @@
 
     <!-- 工作目录 -->
     <key>WorkingDirectory</key>
-    <!-- EDIT: 替换为你的 Skill 安装路径/scripts -->
-    <string>/tmp/nsksd-content-skill/scripts</string>
+    <string>/Users/suze/.claude/skills/nsksd-content/scripts</string>
 
     <!-- 日志输出 -->
     <key>StandardOutPath</key>
-    <!-- EDIT: 替换为你的 Skill 安装路径/logs/... -->
-    <string>/tmp/nsksd-content-skill/logs/launchd-stdout.log</string>
+    <string>/Users/suze/.claude/skills/nsksd-content/logs/launchd-stdout.log</string>
     <key>StandardErrorPath</key>
-    <!-- EDIT: 替换为你的 Skill 安装路径/logs/... -->
-    <string>/tmp/nsksd-content-skill/logs/launchd-stderr.log</string>
+    <string>/Users/suze/.claude/skills/nsksd-content/logs/launchd-stderr.log</string>
 
     <!-- 失败后不自动重启（避免循环崩溃） -->
     <key>KeepAlive</key>

@@ -123,13 +123,19 @@ def run_interactive_setup() -> dict:
     }
 
     print("--- 微信公众号凭证 ---")
-    print("（在微信公众平台 → 开发 → 基本配置 获取）\n")
+    print("📎 获取地址：https://mp.weixin.qq.com/  →  登录  →  开发  →  基本配置  →  开发者ID")
+    print("   （app_id = 原始 ID 下面的「开发者 ID」；app_secret 需先「重置」再复制）")
+    print("   💡 还需在「IP白名单」添加本机出口 IP，否则调用接口会被拒\n")
     config["wechat"]["app_id"] = ask("微信 app_id", "REPLACE_ME")
     config["wechat"]["app_secret"] = ask("微信 app_secret", "REPLACE_ME")
     config["wechat"]["author"] = ask("文章作者名（可留空，默认显示公众号名称）", "")
 
     print("\n--- 飞书凭证 ---")
-    print("（在飞书开放平台 → 应用管理 → 选择应用 → 凭证与基础信息 获取）\n")
+    print("📎 获取地址：https://open.feishu.cn/app  →  选择/创建自建应用  →  凭证与基础信息")
+    print("   - app_id（cli_xxx 格式）")
+    print("   - app_secret")
+    print("   open_id 查询：https://open.feishu.cn/api-explorer  →  batch_get_id 按手机号反查")
+    print("   chat_id 查询：应用管理 → 权限配置 → 加 im:chat 权限，调 /open-apis/im/v1/chats\n")
     config["lark"]["app_id"] = ask("飞书 app_id（cli_xxx 格式）", "REPLACE_ME")
     config["lark"]["app_secret"] = ask("飞书 app_secret", "REPLACE_ME")
     config["lark"]["target_open_id"] = ask("目标 open_id（接收通知的用户，oc_xxx 格式）", "REPLACE_ME")
@@ -170,6 +176,10 @@ def main() -> None:
             print(f"\n[注意] 以下字段未填写或仍为 REPLACE_ME：")
             for f in missing:
                 print(f"  - {f}")
+            print("\n📎 快速查询入口：")
+            print("   · 微信 app_id/app_secret: https://mp.weixin.qq.com/  →  开发  →  基本配置")
+            print("   · 飞书 app_id/app_secret: https://open.feishu.cn/app  →  凭证与基础信息")
+            print("   · 飞书 open_id 反查: https://open.feishu.cn/api-explorer  →  batch_get_id")
             print("\n输入 y 进入交互引导补填，其他键退出。")
             try:
                 choice = input("> ").strip().lower()

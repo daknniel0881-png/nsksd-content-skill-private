@@ -76,7 +76,11 @@ $chosen_titles
 2. article-writer: 按 references/nsksd-writing-style.md 出正文（大白话+专业，不引个人风格）
 3. quyu-view-checker: 扫描禁用词/句式,不过退回重写
 4. image-designer: 走 xhs-image-creator Bento Grid 风格配图
-5. format-publisher: 排版（nsksd_publish 本地流水线），结果写 /tmp/nsksd-publish-${session_id}.result
+5. format-publisher: 排版产出统一目录 /tmp/nsksd-${session_id}/，结构：
+     - article.html（排版好的正文）
+     - images/cover.jpg（封面图，必需）
+     - images/*.jpg（内文配图，可选）
+   Step 5 由本 watcher 自动调 nsksd_publish.py --dir 做飞书+公众号双推，不要自己推
 
 【完成后动作】
 每篇完成,调:
@@ -96,23 +100,26 @@ EOF
   if "$CLAUDE_BIN" -p "$prompt" > "$work_log" 2>&1; then
     log "  ✅ Steps 1-4 完成，执行 Step 5: 发布"
 
-    # Step 5: 发布（nsksd_publish 本地流水线）
-    local HTML_FILE="/tmp/nsksd-article-${session_id}.html"
-    local COVER_FILE="/tmp/nsksd-cover-${session_id}.jpg"
-    local ARTICLE_TITLE
-    ARTICLE_TITLE=$(python3 -c "
-import json, sys
-d = json.load(open('$trigger_file'))
-titles = d.get('chosen_titles', [])
-print(titles[0] if titles else 'NSKSD文章')
-" 2>/dev/null || echo "NSKSD文章")
+    # Step 5: 发布（nsksd_publish 本地流水线，V9.5 双推）
+    # 约定：Claude CLI 流水线产出目录在 /tmp/nsksd-${session_id}/，
+    #      结构 article.html + images/cover.jpg（+ 其他内文图）
+    local ARTICLE_DIR="/tmp/nsksd-${session_id}"
+    if [ ! -f "$ARTICLE_DIR/article.html" ]; then
+      # 兼容旧 prompt 产物路径
+      local LEGACY_HTML="/tmp/nsksd-article-${session_id}.html"
+      local LEGACY_COVER="/tmp/nsksd-cover-${session_id}.jpg"
+      if [ -f "$LEGACY_HTML" ]; then
+        mkdir -p "$ARTICLE_DIR/images"
+        cp "$LEGACY_HTML" "$ARTICLE_DIR/article.html"
+        [ -f "$LEGACY_COVER" ] && cp "$LEGACY_COVER" "$ARTICLE_DIR/images/cover.jpg"
+      fi
+    fi
 
-    log "Step 5: 发布（nsksd_publish 本地流水线）"
+    log "Step 5: 发布（nsksd_publish 双推：飞书云文档 + 公众号草稿）"
     python3 "$SKILL_DIR/scripts/nsksd_publish.py" \
-      --html "$HTML_FILE" \
-      --cover "$COVER_FILE" \
-      --title "$ARTICLE_TITLE" \
-      --session-id "$session_id" \
+      --dir "$ARTICLE_DIR" \
+      --author "日生研内容部" \
+      --customer-chat-id "$open_chat_id" \
       >> "$work_log" 2>&1
     PUBLISH_EXIT=$?
     case $PUBLISH_EXIT in

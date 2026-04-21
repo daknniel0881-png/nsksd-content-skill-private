@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""nsksd-content 统一发布入口（V9.3 新增）
+"""nsksd-content 统一发布入口（V9.5 · 飞书+公众号双推）
 
-流程：
-1. check_credentials → 决定走主路径还是保底
-2. 凭证完备：走 wechat_publish_core.publish
-   - 成功：推绿卡
-   - 失败：创建飞书保底文档 + 推红卡（exp 场景处理）
-3. 凭证缺失：直接创建飞书保底文档 + 推红卡（禁止假装成功）
+流程（V9.5 重构）：
+1. **飞书云文档无条件推送**（永远保底，方便预览/审阅/归档）
+2. **公众号追加推送**（凭证齐 → 真推草稿；凭证缺 → 明确告知未推；推送失败 → 告警）
+3. 通知卡片同时展示两端状态，不再让人误解"飞书推了=公众号推了"
+
+exit code 语义：
+- 0 = 飞书 ✅ + 公众号 ✅
+- 3 = 飞书 ✅ + 公众号 ⚠️ 未配置凭证（不算错误，按设计走）
+- 4 = 飞书 ✅ + 公众号 ❌ 推送失败（网络/token 过期/余额不足等）
+- 2 = 输入文件缺失（致命，飞书都没推）
 
 用法：
     python3 scripts/nsksd_publish.py --dir /path/to/formatted/article \
@@ -94,32 +98,39 @@ def main() -> int:
         print(f"[ERR] {msg}", file=sys.stderr)
         return 2
 
+    # ── V9.5 · 铁律：飞书云文档无条件先推一份（保底+审阅+归档）
+    doc_url = create_fallback_doc(title, html)
+    if doc_url:
+        print(f"[OK] 飞书云文档已创建：{doc_url}")
+    else:
+        print("[WARN] 飞书云文档创建失败（lark-cli 未装或超时），继续尝试公众号")
+
+    # ── 公众号是否追加推送，看凭证
     status = check_credentials()
 
-    # ── 场景 1：凭证缺失 → 飞书保底 + 红卡（exp 场景硬约束）
     if status.should_fallback:
-        doc_url = create_fallback_doc(title, html)
+        # 场景 A：没配公众号凭证 → 只有飞书
         notif = build_missing_creds_notification(doc_url)
         send_result = notify_dual(notif, args.customer_chat_id, args.admin_open_id)
-        print(f"[WARN] 凭证缺失，已走飞书保底 doc_url={doc_url} notify={send_result}")
-        # exit 非 0 让调用方（master-orchestrator）知道没推公众号
+        print(f"[INFO] 公众号凭证未配置，仅飞书推送 notify={send_result}")
         return 3
 
-    # ── 场景 2：凭证完备 → 走主路径
+    # 场景 B：凭证齐 → 推公众号草稿箱
     try:
         media_id = publish_to_wechat(article_dir, html, title, args.author)
     except WeChatPublishError as e:
         safe_msg = mask_in_text(str(e), secrets)
-        doc_url = create_fallback_doc(title, html)
         notif = build_failure_notification(safe_msg, doc_url)
         send_result = notify_dual(notif, args.customer_chat_id, args.admin_open_id)
-        print(f"[ERR] 公众号推送失败：{safe_msg} → 已启用飞书保底 notify={send_result}")
+        print(f"[ERR] 公众号推送失败：{safe_msg}（飞书文档已推 {doc_url}）notify={send_result}")
         return 4
 
-    # ── 成功：绿卡
+    # 场景 C：飞书 + 公众号双成功
     notif = build_success_notification(title, media_id)
+    # 把 doc_url 也挂到 notification 上一并展示
+    notif.doc_url = doc_url
     send_result = notify_dual(notif, args.customer_chat_id, args.admin_open_id)
-    print(f"[OK] 草稿推送成功 media_id={media_id} notify={send_result}")
+    print(f"[OK] 飞书+公众号双推完成 media_id={media_id} doc={doc_url} notify={send_result}")
     return 0
 
 

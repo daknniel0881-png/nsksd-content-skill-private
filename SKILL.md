@@ -1,11 +1,20 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.4）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.5）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.5 飞书云文档+公众号草稿**双推铁律**（飞书永远保底，公众号看凭证追加）；修 lark-cli 相对路径 + jq doc_url 字段 2 个上线拦路 bug；trigger_watcher Step5 统一 --dir 目录签名；setup_cli 加查询链接提示。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.4）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.5）
 
-## V9.4 核心升级（本版 · 2026-04-21）
+## V9.5 核心升级（本版 · 2026-04-21 晚）
+
+1. **飞书+公众号双推铁律**：`scripts/nsksd_publish.py` 重构 main()——飞书云文档**无条件先推**（永远保底，可预览/审阅/归档），公众号**凭证齐时追加推送**。通知卡同时展示两端状态，不再让人误解"飞书推了=公众号推了"。exit code 语义：0=双端✅ / 3=飞书✅+公众号⚠️未配置 / 4=飞书✅+公众号❌失败 / 2=输入文件缺失
+2. **修 2 个 lark-cli 上线拦路 bug**：
+   - `lark-cli 1.0.14+` 要求 `--markdown @file` 是相对路径，之前传绝对路径被拒 → 改 `tempfile.mkdtemp` + `cwd=tmp_dir` + 相对文件名
+   - lark-cli 返回体 URL 在 `.data.doc_url`，jq 表达式之前错取 `.data.url`（永远为空）→ 改为 `.data.doc_url // .data.url // .url // empty`
+3. **trigger_watcher Step 5 签名统一**：Claude CLI 产物目录约定 `/tmp/nsksd-${session_id}/` 含 `article.html` + `images/cover.jpg`，nsksd_publish 用 `--dir` 入口（之前 `--html/--cover/--title` 签名错配会直接失败）
+4. **setup_cli 加查询链接提示**：凭证未填时主动给出微信公众平台 + 飞书开放平台 + api-explorer 直链，客户不用到处 Google
+
+## V9.4 核心升级（2026-04-21）
 
 1. **彻底与 wechat-autopublish 解耦**：清除 4 处 quyu-writing-style 残留引用，trigger_watcher Step5 改走 `nsksd_publish.py` 本地流水线
 2. **独立写作规则**：新增 `references/nsksd-writing-style.md`，大白话+专业，不引任何个人写作风格

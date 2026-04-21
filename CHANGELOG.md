@@ -1,5 +1,32 @@
 # 更新日志
 
+## [V9.5] - 2026-04-21（晚）
+
+### 新增（铁律升级）
+- **飞书+公众号双推铁律**：`scripts/nsksd_publish.py` 重构 main() 流程：
+  - 飞书云文档无条件先推（永远保底，用于预览/审阅/归档）
+  - 公众号凭证齐时追加推送，凭证缺/失败时通知卡明确告知"公众号未推"
+  - exit code 语义：0 双端成功 / 3 飞书✅+公众号未配置 / 4 飞书✅+公众号失败 / 2 输入缺失
+
+### 修复（上线拦路 bug）
+- **lark-cli 1.0.14 绝对路径被拒**：`--markdown @file` 要求相对路径
+  - 解法：改用 `tempfile.mkdtemp` 专用目录 + `cwd=tmp_dir` + 相对文件名
+- **jq 表达式错取字段**：lark-cli 返回的 URL 在 `.data.doc_url`，之前取 `.data.url` 永远为空
+  - 解法：改为 `.data.doc_url // .data.url // .url // empty`，raw 解析兜底同步补上 doc_url
+- **trigger_watcher Step 5 签名错配**：之前调 `--html --cover --title`，新版只接 `--dir`
+  - 解法：统一产物目录 `/tmp/nsksd-${session_id}/` 含 `article.html` + `images/cover.jpg`
+
+### 新增（客户自助体验）
+- **setup_cli 查询链接提示**：凭证未填时主动给微信公众平台 / 飞书开放平台 / api-explorer 直链 + IP 白名单提醒
+
+### E2E 验证
+- `scripts/nsksd_publish.py --dir /tmp/nsksd-dualpush-test --author "日生研内容部"` 双推打通：
+  - 飞书云文档：https://www.feishu.cn/docx/TJTDdCsZ3ocSMOxUd1xcsTn7nlb
+  - 公众号草稿 media_id：RTt8Y-U45B92SLFlt9IpKAgcH4GjtQb4IPNGtaB01rTuWyHPjLiph73SsvW9hjhg
+  - 通知卡送达曲率 admin_open_id ✅
+
+---
+
 ## [V9.4] - 2026-04-21
 
 ### 解耦

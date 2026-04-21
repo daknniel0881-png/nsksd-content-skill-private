@@ -26,12 +26,37 @@ from pathlib import Path
 SKILL_DIR = Path(__file__).resolve().parent.parent
 HISTORY_FILE = SKILL_DIR / "logs" / "topic-history.jsonl"
 HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+# V9.7: 首次运行自动 touch，避免去重空转
+if not HISTORY_FILE.exists():
+    HISTORY_FILE.touch()
 
 STOP_WORDS = set(
     "的 了 是 在 和 也 吗 啊 吧 就 都 又 还 把 被 让 使 从 向 对 给 由 "
     "这 那 哪 什么 怎么 为什么 如何 多少 几 一 二 三 你 我 他 她 它 "
     "nsksd 纳豆激酶 日生研".split()
 )
+
+# V9.7: 维度每日/每周硬配额（topic-selection-rules.md 第一节）
+DAILY_CAP = {
+    "M1": 3, "M2": 1, "M3": 2, "M4": 3,
+    "M5": 1, "M6": 1, "M7": 1, "M8": 2,
+}
+WEEKLY_CAP = {
+    "M1": 8, "M2": 2, "M3": 5, "M4": 8,
+    "M5": 2, "M6": 3, "M7": 3, "M8": 5,
+}
+
+# V9.7: 25 词 30 天冷冻窗口（新增 5 词反门店）
+FROZEN_KEYWORDS = [
+    # 医学向 20 词
+    "斑块", "溶栓", "血栓", "认知", "阿尔茨海默", "痴呆",
+    "熬夜", "三高", "高血压", "心梗", "脑梗", "中风",
+    "活性FU", "RCT", "临床", "专家共识", "专家指引",
+    "浙大", "1062人", "大样本", "慢病管理", "心脑血管",
+    "非药物干预", "抗凝",
+    # V9.7 新增 5 词反门店
+    "美容院", "养生馆", "社区门店", "分销商", "分销", "门店老板",
+]
 
 
 def _now_iso() -> str:
@@ -119,6 +144,101 @@ def check_topic(topic: dict, fingerprints: dict = None) -> dict:
     }
 
 
+def _query_last_used(keyword: str) -> datetime | None:
+    """返回某关键词最近一次在标题/角度出现的时间（近 30 天内）"""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    latest = None
+    for rec in _load_records():
+        try:
+            dt = datetime.fromisoformat(rec["date"])
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+        if dt < cutoff:
+            continue
+        title = rec.get("title", "") or ""
+        angle = rec.get("angle", "") or ""
+        if keyword in title or keyword in angle:
+            if latest is None or dt > latest:
+                latest = dt
+    return latest
+
+
+def check_frozen_keywords(title: str, angle: str = "") -> list[str]:
+    """
+    V9.7: 返回标题/角度命中且仍在 30 天冷冻期的禁用词列表。
+    命中任一 → topic-scout 必须换角度或换核心词。
+    """
+    hits = []
+    now = datetime.now(timezone.utc)
+    for kw in FROZEN_KEYWORDS:
+        if kw in title or kw in angle:
+            last_used = _query_last_used(kw)
+            if last_used and (now - last_used).days < 30:
+                hits.append(kw)
+    return hits
+
+
+def check_dimension_quota(candidates: list[dict]) -> dict:
+    """
+    V9.7: 校验本批候选维度配额（日/周）。
+    返回 {dimension: over_count}，超额维度需要 topic-scout 重生成。
+    """
+    from collections import Counter
+
+    # 近 7 天历史
+    cutoff_7d = datetime.now(timezone.utc) - timedelta(days=7)
+    week_history = []
+    for rec in _load_records():
+        try:
+            dt = datetime.fromisoformat(rec["date"])
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+        if dt >= cutoff_7d and rec.get("used_in") in ("selected", "published"):
+            week_history.append(rec)
+
+    week_counts = Counter([r.get("dimension", "?") for r in week_history])
+    today_counts = Counter([c.get("dimension", "?") for c in candidates])
+    over = {}
+
+    for dim, cap in DAILY_CAP.items():
+        if today_counts[dim] > cap:
+            over[dim] = {"scope": "daily", "over": today_counts[dim] - cap,
+                         "current": today_counts[dim], "cap": cap}
+
+    for dim, cap in WEEKLY_CAP.items():
+        total = week_counts[dim] + today_counts[dim]
+        if total > cap:
+            if dim not in over:
+                over[dim] = {"scope": "weekly", "over": total - cap,
+                             "current": total, "cap": cap}
+
+    # V9.7 硬线：M7 单日 ≤1，M6+M7 合计 ≤2
+    if today_counts.get("M7", 0) > 1:
+        over["M7_hardline"] = {"scope": "daily_hardline",
+                                "over": today_counts["M7"] - 1,
+                                "current": today_counts["M7"], "cap": 1}
+    m6m7 = today_counts.get("M6", 0) + today_counts.get("M7", 0)
+    if m6m7 > 2:
+        over["M6+M7_hardline"] = {"scope": "daily_combo",
+                                    "over": m6m7 - 2,
+                                    "current": m6m7, "cap": 2}
+
+    # V9.7 硬线：C 端维度占比 ≥ 60%
+    c_end_dims = {"M1", "M3", "M4", "M8"}
+    c_end_count = sum(today_counts[d] for d in c_end_dims)
+    total_today = sum(today_counts.values())
+    if total_today >= 10 and c_end_count < 6:
+        over["C_end_ratio"] = {"scope": "audience",
+                                "over": 6 - c_end_count,
+                                "current": c_end_count, "cap": 6}
+
+    return over
+
+
 def append_candidate(topic: dict, sid: str = None, used_in: str = "candidate"):
     """追加一条记录"""
     rec = {
@@ -129,6 +249,13 @@ def append_candidate(topic: dict, sid: str = None, used_in: str = "candidate"):
         "line": topic.get("line", ""),
         "angle": topic.get("angle", ""),
         "data_points": list(topic.get("data_points", [])),
+        # V9.7 新增字段
+        "dimension": topic.get("dimension", ""),
+        "formula": topic.get("formula", ""),
+        "audience": topic.get("audience", ""),
+        "frozen_keywords": check_frozen_keywords(
+            topic.get("title", ""), topic.get("angle", "")
+        ),
         "used_in": used_in,
     }
     with HISTORY_FILE.open("a") as f:
@@ -189,6 +316,15 @@ def main():
     sub.add_parser("load-30d")
     sub.add_parser("stats")
 
+    # V9.7 新增子命令
+    p_frz = sub.add_parser("check-frozen")
+    p_frz.add_argument("--title", required=True)
+    p_frz.add_argument("--angle", default="")
+
+    p_quo = sub.add_parser("check-quota")
+    p_quo.add_argument("--json", required=True,
+                        help="候选 list[dict]，每个含 dimension")
+
     p_chk = sub.add_parser("check")
     p_chk.add_argument("--json", required=True)
 
@@ -235,6 +371,15 @@ def main():
         print(f"updated {n} records")
     elif args.cmd == "stats":
         print(json.dumps(stats(), ensure_ascii=False, indent=2))
+    elif args.cmd == "check-frozen":
+        hits = check_frozen_keywords(args.title, args.angle)
+        print(json.dumps({"frozen_hits": hits}, ensure_ascii=False, indent=2))
+        sys.exit(1 if hits else 0)
+    elif args.cmd == "check-quota":
+        candidates = json.loads(args.json)
+        over = check_dimension_quota(candidates)
+        print(json.dumps({"over_quota": over}, ensure_ascii=False, indent=2))
+        sys.exit(1 if over else 0)
 
 
 if __name__ == "__main__":

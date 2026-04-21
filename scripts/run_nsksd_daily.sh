@@ -67,21 +67,47 @@ generate_topics() {
 
   local prompt
   prompt=$(cat <<EOF
-请阅读 $SKILL_DIR/SKILL.md 了解 V9.4 工作流。
-参考 $SKILL_DIR/references/topic-selection-rules.md、$SKILL_DIR/references/topic-library/README.md 做选题。
+请阅读 $SKILL_DIR/SKILL.md 了解 V9.7 工作流。
+【必读三件套】
+- $SKILL_DIR/references/topic-selection-rules.md（八维坐标系 + 三层去重 + 反面示例）
+- $SKILL_DIR/references/title-playbook.md（45 标题公式 + 张力 6 维 + 三库禁用词 + 医广红线）
+- $SKILL_DIR/references/topic-library/README.md（分块资讯池 + 8 招商角度硬约束）
 
 执行【Step 1 · 选题生成】:
-1. 先读当日热点 $SKILL_DIR/references/topic-library/hotspots/$(date +%F).json（没有就跳过，别强求）
-2. 查 $SKILL_DIR/logs/topic-history.jsonl 做 30 天三维指纹去重
+1. 读当日热点 $SKILL_DIR/references/topic-library/hotspots/$(date +%F).json（无则跳过）
+2. 查 $SKILL_DIR/logs/topic-history.jsonl 做 30 天三维指纹去重（文件不存在就当空集合）
 3. 生成 >= 10 个选题（S/A/B 分层），至少 3 个结合当日热点
-4. 每个选题包含：标题/维度/角度/数据点(含URL)/公式/合规分级/等级/评分/发布时机/目标人群/内容线
+4. 每个选题包含：标题/维度(M1-M8)/公式(F1-F45)/角度/数据点(含URL)/目标人群/内容线/合规分级/等级/评分/发布时机
 
-严禁：捏造数据、捏造 URL、捏造机构。找不到就写"行业内流传"或删掉。
+【V9.7 硬约束 · 选题维度配比】
+- 10 选题必须覆盖 ≥ 5 个不同维度（M1-M8）
+- **M7 招商场景单日 ≤ 1 条**（硬线，违反就重生成）
+- M6 产品科普单日 ≤ 1 条；M6 + M7 合计 ≤ 2 条
+- C 端维度（M1 医学循证 + M3 节气养生 + M4 用户痛点 + M8 名人古法）占比 ≥ 60%（7/10 以上给 C 端）
+- 禁止主人群（门店老板 / 美容院老板 / 养生馆老板 / 分销商）超过 1 条
+
+【V9.7 反面示例 · 禁止生成类似变体】
+❌ 美容院下一个利润增长点，不在脸上
+❌ 养生馆老板：你还在靠手艺赚钱吗
+❌ 社区门店如何靠一款产品锁定 500 个家庭
+❌ 血管健康到底怎么管（无数字无人群）
+❌ 根治血栓的方法（触医广红线）
+
+【V9.7 标题必过 · 张力 6 维命中 ≥3 项】
+[对比反差] [具体数字] [悬念好奇] [冲突争议] [时间承诺] [结果承诺]
+每条标题至少命中 3 项。公众号标题 18-25 字，关键词前置到前 10 字。
+
+【V9.7 标题禁用词 · 三库扫描】
+- 医广红线：治疗/治愈/根治/当天见效/最好/最佳/第一/唯一/国家级
+- 曲率风格禁用：赋能/链路/飞轮/颗粒度/抓手/闭环/破圈/放大招/炸裂/颠覆
+- 禁用句式：「不是…而是…」「不是…是…」破折号 ——
+
+严禁：捏造数据 / 捏造 URL / 捏造机构 / 日本表述（日本进口、日式工艺）。找不到就写"行业内流传"或删掉。
 
 【输出格式严格要求】
 文末用 \`\`\`json 代码块输出 JSON 数组,字段:
   - value: 选题编号(topic_1, topic_2, ... 按 1-10 原序)
-  - text: 完整 Markdown 文本(例 "🏆 选题1 · 标题（90分）")
+  - text: 完整 Markdown 文本(例 "🏆 选题1 · 标题（M4/F21，90分）")
 至少 10 个 options。
 EOF
 )

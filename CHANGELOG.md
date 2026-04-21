@@ -1,5 +1,27 @@
 # 更新日志
 
+## [V9.7] - 2026-04-21
+
+### 新增（标题选题方法论大融合）
+- **`references/title-playbook.md` 全文重写 V9.0 → V9.7**：45 爆款公式 = F1-F10 本地原有 + F11-F40 DBS 9 大类 30 公式 + F41-F45 全网爆款 5 补充；张力 6 维命中 ≥3 项硬门控；三库禁用词扫描；中老年 5 风格偏好；数字+痛点公式 +27% 打开率数据支撑
+- **`references/topic-selection-rules.md` 全文重写 V9.1 → V9.7**：六维坐标系 M1-M6 扩容为八维 M1-M8（新增 M7 招商场景 / M8 名人古法）；硬约束 M7 ≤1/日、M6+M7 ≤2/日、C 端维度 ≥60%、主人群（门店/美容院/养生馆/分销商）≤1/日；反面示例黑名单 4 类
+- **`references/knowledge-base.md` 第九章扩容**：C 端 6 类画像 + B 端 6 类画像 + C 端 70% / B 端 30% 硬比例
+- **`docs/playbooks/topic-title-workflow.md` 新增**：E2E 7 步工作流图 + 硬约束速查表 + CLI 调用示例 + 4 类踩坑记录 + V9.7 变更对照
+
+### 修复（5 个根因级 bug · 来自选题重复审计报告）
+- **root-cause 1**：`SKILL.md` 北极星口径"目标=美容院老板+养生馆老板+门店老板成为分销商" → LLM 永远朝门店对齐。修法：改为"C 端消费者科普 70% + B 端招商场景 30%"
+- **root-cause 2**：`logs/topic-history.jsonl` 不存在 → 三层去重"全部通过"实则空转。修法：`topic_history.py` 启动 `HISTORY_FILE.touch()`
+- **root-cause 3**：三层去重纸面约束，无代码执行。修法：`check_dimension_quota()` + `check_frozen_keywords()` 代码化，CLI 子命令 `check-quota` / `check-frozen` 暴露给 prompt 调用
+- **root-cause 4**：`title-playbook.md` 从未被 `run_nsksd_daily.sh` 加载进 prompt。修法：Step 1 prompt 重写，必读三件套包含 title-playbook.md
+- **root-cause 5**：冷冻词池只有 20 个且不含门店 B 端词。修法：扩至 25 个，追加美容院/养生馆/社区门店/分销商/门店老板
+
+### 代码变更
+- `scripts/topic_history.py`：新增 `DAILY_CAP` / `WEEKLY_CAP` / `FROZEN_KEYWORDS(25)` 常量；新增 `_query_last_used` / `check_frozen_keywords` / `check_dimension_quota` 三函数；`append_candidate` 扩展 `dimension / formula / audience / frozen_keywords` 字段；CLI 新增 `check-frozen` / `check-quota` 子命令
+- `scripts/run_nsksd_daily.sh`：Step 1 prompt 重写，加入必读三件套 + V9.7 硬约束 + 反面示例 + 张力 6 维 + 三库禁用词扫描
+
+### TODO（记入 topic-title-workflow.md 第六节坑 3）
+- 拆 `scripts/topic-crawler.ts` M6 关键词池：M6 产品科普（纳豆激酶/FU 活性/纤溶）+ M7 招商场景（门店/馆/私域）两个独立词池
+
 ## [V9.6] - 2026-04-21（深夜）
 
 ### 新增（引导反馈卡 E2E 打通）

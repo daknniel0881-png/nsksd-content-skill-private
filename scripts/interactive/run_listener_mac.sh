@@ -9,6 +9,13 @@ VENV_DIR=".venv"
 PID_FILE="listener.pid"
 LOG_FILE="listener.out"
 
+# 自动从 ~/.nsksd-content/config.json 注入飞书凭证
+CONFIG_FILE="$HOME/.nsksd-content/config.json"
+if [ -f "$CONFIG_FILE" ]; then
+    export LARK_APP_ID="$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['lark']['app_id'])")"
+    export LARK_APP_SECRET="$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['lark']['app_secret'])")"
+fi
+
 ensure_venv() {
     if [ ! -d "$VENV_DIR" ]; then
         echo "[setup] 创建 venv..."

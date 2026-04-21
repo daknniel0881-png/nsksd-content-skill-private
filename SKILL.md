@@ -1,11 +1,22 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.5）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.5 飞书云文档+公众号草稿**双推铁律**（飞书永远保底，公众号看凭证追加）；修 lark-cli 相对路径 + jq doc_url 字段 2 个上线拦路 bug；trigger_watcher Step5 统一 --dir 目录签名；setup_cli 加查询链接提示。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.6）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.6 **Guided 引导反馈卡 E2E 打通**（blue header + input max_length=1000 + bisect 双 button + 锁定态灰化）；修 3 个死活不通的真因（danger button 校验 + disabled type 坑 + listener 凭证注入）；新增 docs/playbooks/guided-feedback-card.md 踩坑全录。V9.5 飞书云文档+公众号草稿**双推铁律**（飞书永远保底，公众号看凭证追加）；修 lark-cli 相对路径 + jq doc_url 字段 2 个上线拦路 bug；trigger_watcher Step5 统一 --dir 目录签名；setup_cli 加查询链接提示。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.5）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.6）
 
-## V9.5 核心升级（本版 · 2026-04-21 晚）
+## V9.6 核心升级（本版 · 2026-04-21 深夜）
+
+1. **Guided 引导反馈卡 E2E 打通**：`card_builder.py::build_guided_feedback_card` + `build_guided_locked_card` + listener `is_guided_card` 分支完整工作。点击按钮后 feedback 文件正确落地（action + feedback_text + 时间戳），锁定态灰化原产出保留
+2. **修 3 个死活不通的真因**（花了一晚上定位，全部记入 `docs/playbooks/guided-feedback-card.md`）：
+   - 锁定卡 `disabled + danger/primary` → Code-356 拒收。改 `type: "default"`
+   - 原卡 reject `type: "danger" + form_action_type: "submit"` + 嵌 `_skeleton` → 客户端本地 schema 校验失败，事件不发网络。改 `primary`，视觉靠 🔴 emoji
+   - `run_listener_mac.sh` 不注入凭证 → 新进程闪退，系统跑老代码。脚本自动读 `~/.nsksd-content/config.json`
+3. **飞书 input 硬限 500→1000**（官方 schema 2.0 硬限）
+4. **flex_mode stretch→bisect**：手机端保持左右布局
+5. **button.value 塞骨架不塞整 body**：309 字节级，远低于 2KB 限制
+
+## V9.5 核心升级（2026-04-21 晚）
 
 1. **飞书+公众号双推铁律**：`scripts/nsksd_publish.py` 重构 main()——飞书云文档**无条件先推**（永远保底，可预览/审阅/归档），公众号**凭证齐时追加推送**。通知卡同时展示两端状态，不再让人误解"飞书推了=公众号推了"。exit code 语义：0=双端✅ / 3=飞书✅+公众号⚠️未配置 / 4=飞书✅+公众号❌失败 / 2=输入文件缺失
 2. **修 2 个 lark-cli 上线拦路 bug**：

@@ -1,5 +1,28 @@
 # 更新日志
 
+## [V9.6] - 2026-04-21（深夜）
+
+### 新增（引导反馈卡 E2E 打通）
+- **Guided 反馈卡全链路工作**：`card_builder.py` + `lark_ws_listener.py` 配合跑通
+  - 布局：blue header + 产出 markdown + input(max_length=1000) + column_set(bisect) 双 button
+  - 点击后：feedback 文件落地 `triggers/guided/{session_id}-{step_name}.feedback`（含 action + feedback_text + 时间戳）
+  - 锁定态：header 变 grey + 原产出保留 + 双 button disabled + 末尾追加「📝 曲率修改意见 · HH:MM」
+- **新增 `docs/playbooks/guided-feedback-card.md`**：完整踩坑记录（5 个真因）+ 硬规则 + 诊断命令 + E2E 剧本
+
+### 修复（3 个死活交互不通的真因）
+- **root-cause 1**：锁定卡 `disabled + danger/primary` 组合 → Code-356 拒收。修法：disabled button 统一 `type: "default"`
+- **root-cause 2**：原卡 reject 按钮 `type: "danger" + form_action_type: "submit"` + value 嵌 `_skeleton` → 客户端本地 schema 校验失败 → 事件根本不发网络。修法：reject 改 `primary`，视觉靠 🔴 emoji
+- **root-cause 3**：`run_listener_mac.sh` 不注入凭证 → 新进程闪退 → 系统一直跑老代码。修法：脚本自动从 `~/.nsksd-content/config.json` 读 `LARK_APP_ID/SECRET`
+
+### 优化
+- **input max_length 500 → 1000**（飞书 schema 2.0 官方硬限，5000 不支持）
+- **flex_mode stretch → bisect**：手机端保持左右布局（stretch 会 fallback 成堆叠上下）
+- **button.value 塞骨架不塞整 body**：从可能超 2KB 降到 309 字节级
+
+### E2E 验证
+- ✅ 场景 A：空输入点 reject → feedback 正确落地（action=reject, feedback_text=""）
+- ✅ 场景 B：填"123"点 reject → feedback 正确落地（action=reject, feedback_text="123"）
+
 ## [V9.5] - 2026-04-21（晚）
 
 ### 新增（铁律升级）

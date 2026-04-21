@@ -43,6 +43,8 @@ if not APP_ID or not APP_SECRET:
 
 TRIGGERS_DIR = SCRIPT_DIR / "triggers"
 TRIGGERS_DIR.mkdir(exist_ok=True)
+GUIDED_TRIGGERS_DIR = TRIGGERS_DIR / "guided"
+GUIDED_TRIGGERS_DIR.mkdir(exist_ok=True)
 
 # tenant_access_token 缓存(2 小时 TTL)
 _TOKEN_CACHE = {"token": None, "expires_at": 0}
@@ -276,10 +278,54 @@ def do_card_action_trigger(data: P2CardActionTrigger) -> P2CardActionTriggerResp
         log(f"[解析失败] {e}")
 
     # 按卡片类型分流锁定卡
+    # 引导卡:button_value.action ∈ {approve, reject}
     # 多选卡:form_value 里有 opt_ 开头的 checker 字段
-    # feedback 卡:form_value 里有 user_feedback 字段
-    is_choice_card = any(k.startswith("opt_") for k in form_value.keys())
-    if is_choice_card:
+    action_type = button_value.get("action", "")
+    is_guided_card = action_type in ("approve", "reject")
+    is_choice_card = (not is_guided_card) and any(
+        k.startswith("opt_") for k in form_value.keys())
+
+    if is_guided_card:
+        # 引导反馈卡:写 feedback 触发文件 + 返回锁定卡
+        from card_builder import build_guided_locked_card
+        feedback_text = (form_value.get("feedback_text", "") or "").strip()
+        step_name = button_value.get("step_name", "unknown")
+        step_index = int(button_value.get("step_index", 0) or 0)
+        total_steps = int(button_value.get("total_steps", 5) or 5)
+
+        # 写 guided feedback 触发文件供 trigger_watcher 消费
+        fb_path = GUIDED_TRIGGERS_DIR / f"{session_id}-{step_name}.feedback"
+        fb_payload = {
+            "session_id": session_id,
+            "step_name": step_name,
+            "step_index": step_index,
+            "action": action_type,
+            "feedback_text": feedback_text,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "status": "pending",
+        }
+        fb_path.write_text(json.dumps(fb_payload, ensure_ascii=False, indent=2),
+                           encoding="utf-8")
+        log(f"[guided trigger] 写入 {fb_path.name} action={action_type}")
+
+        # 取 button.value 里的原卡骨架（避免整个 body 超 2KB）
+        skeleton = button_value.get("_skeleton", {}) or {
+            "title": f"🧭 引导模式 · 第 {step_index}/{total_steps} 步 · {step_name}",
+            "subtitle": "审核产出 → 打回修改 或 通过到下一步",
+            "step_output_md": "(原产出未透传)",
+        }
+        locked = build_guided_locked_card(
+            skeleton=skeleton,
+            action=action_type,
+            feedback_text=feedback_text,
+            step_name=step_name,
+            step_index=step_index,
+            total_steps=total_steps,
+        )
+        toast_msg = ("✅ 已通过,进入下一步"
+                     if action_type == "approve"
+                     else "🔴 已打回,Agent 将按意见重做")
+    elif is_choice_card:
         # 从 button_value 里拿回原 options(发卡时塞进来的,保证原序原文案)
         options = button_value.get("options") or []
         original_title = button_value.get("original_title", "")

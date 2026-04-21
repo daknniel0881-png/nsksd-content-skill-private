@@ -1,0 +1,9 @@
+{
+  "session_id": "test-v95-guided-001",
+  "step_name": "title_outliner",
+  "step_index": 1,
+  "action": "reject",
+  "feedback_text": "123",
+  "created_at": "2026-04-21T21:10:52",
+  "status": "pending"
+}

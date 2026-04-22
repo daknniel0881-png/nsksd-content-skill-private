@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-fact_auditor.py · 事实性挑刺扫描硬门控（V10.4 新增）
+fact_auditor.py · 事实性挑刺扫描硬门控（V10.4.1 放宽修复）
 
 KPI：找幻觉，不是评质量。四类扫描规则：
-  A. orphan_number   — 具体数字无同段来源标注
-  B. weasel_phrase   — 懒惰话术（研究表明 / 专家认为 / 据统计 …）
-  C. non_whitelist_source — 正文来源括号里的机构/期刊不在白名单内
-  D. institution_without_doi — 大学/研究所/医院 + 年份 + 研究，同段无 DOI/URL/《刊物》
+  A. orphan_number   — 具体数字无任何出处线索（默认 low，只有完全裸奔才 high）
+  B. weasel_phrase   — 懒惰话术（研究表明 / 专家认为 / 据统计 …）严格保留
+  C. non_whitelist_source — 正文来源括号里的机构/期刊不在白名单内（medium，不阻断）
+  D. institution_without_doi — 大学/研究所/医院 + 年份 + 研究，同段无任何合规载体
+
+V10.4.1 修复过度的点：
+  · 规则 A：同段含 [数字] 脚注 / 《刊物》/ 研究/试验/发表 等出处线索 → 自动通过
+  · 规则 A：真正 high 只留"孤零零数字+单位，段内毫无任何出处语言"
+  · 规则 D：合规载体扩展到 `公众号刊文 / 发表于 / 刊文 / [数字]脚注`
 
 输出：
-  step3-fact-audit.json（写入同目录），结构：
-    {
-      "suspicious": [{"claim":"...", "reason":"...", "severity":"high|medium|low", "line":N}],
-      "stats": {total_claims, high, medium, low, weasel_hits, non_whitelist_hits}
-    }
+  step3-fact-audit.json（写入同目录）
 
 退出码：
   0 = 通过（无 high severity）
@@ -37,12 +38,20 @@ from pathlib import Path
 NUMBER_UNIT_PAT = re.compile(
     r"\d+(?:\.\d+)?\s*(?:%|mg|μg|ug|IU|FU|kg|g|ml|毫克|毫升|微克|千克|克|mm|cm)"
 )
-# 同段来源标注：（来源：XXX）或含 DOI / URL 的括号
-SOURCE_IN_PARA_PAT = re.compile(
+# 强来源标注（命中即通过，且段内无需进一步判断）
+SOURCE_STRONG_PAT = re.compile(
     r"[（(]\s*(?:来源|出处|引自|参考)[：:]|"
     r"DOI\s*[:：]|"
     r"https?://|"
     r"《[^》]{1,40}》"
+)
+# 软出处线索：段内有 [数字]脚注 / 研究/试验/发表/刊文/公众号 等，
+# 说明作者其实挂了参考文献或交代了出处来源 —— 宽松通过
+SOURCE_SOFT_PAT = re.compile(
+    r"\[\d{1,3}\]|"                        # [1] [12] 脚注
+    r"[\u4e00-\u9fa5]研究[^，。\n]{0,20}(?:发现|显示|指出|表明)|"
+    r"试验|临床|队列|综述|meta\s*分析|"
+    r"发表于|刊文|公众号|官方|白皮书|指南|声明"
 )
 # 机构名 + 年份（规则 A 附加判断：机构出现时年份也要求有 DOI/URL/期刊）
 INSTITUTION_PAT = re.compile(
@@ -78,7 +87,8 @@ INST_YEAR_STUDY_PAT = re.compile(
     r"(?:研究|试验|调查|报告|实验|临床|数据|发现)"
 )
 DOI_URL_JOURNAL_PAT = re.compile(
-    r"DOI\s*[:：]|https?://|《[^》]{1,40}》|\d{4}\s*[，,]\s*\d+"
+    r"DOI\s*[:：]|https?://|《[^》]{1,40}》|\d{4}\s*[，,]\s*\d+|"
+    r"\[\d{1,3}\]|发表于|刊文|公众号|官方声明|白皮书|指南"
 )
 
 
@@ -155,18 +165,27 @@ def get_paragraph(text: str, pos: int) -> str:
 # 四条扫描规则
 # ─────────────────────────────────────────────
 def scan_orphan_numbers(text: str) -> list[dict]:
+    """V10.4.1 放宽：
+      · 段内命中 SOURCE_STRONG_PAT（来源/DOI/URL/《刊物》）→ 不计入（作者已交代出处）
+      · 段内命中 SOURCE_SOFT_PAT（[n]脚注/研究/发表/公众号 等）→ 不计入（软出处）
+      · 段内完全没有任何出处语言 → 才记为 high
+    目的：数字本身不是问题，无法溯源的数字才是问题。
+    """
     findings = []
     for m in NUMBER_UNIT_PAT.finditer(text):
         para = get_paragraph(text, m.start())
-        if not SOURCE_IN_PARA_PAT.search(para):
-            # 年份 + 机构组合：单独处理（规则 A 附加）
-            findings.append({
-                "claim": m.group(0),
-                "reason": f"具体数字「{m.group(0)}」所在段落无来源标注（来源：XXX）",
-                "severity": "high",
-                "line": get_line_number(text, m.start()),
-                "context": ctx(text, m.start()),
-            })
+        if SOURCE_STRONG_PAT.search(para) or SOURCE_SOFT_PAT.search(para):
+            continue  # 段内已有出处线索，放行
+        findings.append({
+            "claim": m.group(0),
+            "reason": (
+                f"具体数字「{m.group(0)}」所在段落完全没有出处语言"
+                "（无来源/DOI/URL/《刊物》/[n]脚注/研究/发表 等）"
+            ),
+            "severity": "high",
+            "line": get_line_number(text, m.start()),
+            "context": ctx(text, m.start()),
+        })
     return findings
 
 

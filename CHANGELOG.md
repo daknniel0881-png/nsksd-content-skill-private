@@ -1,5 +1,35 @@
 # 更新日志
 
+## [V10.6] - 2026-04-22 · 竞品数据污染紧急清除 + 数据黑名单门控
+
+### 背景
+
+发现知识库长期混入广东双骏生物科技的临床数据（1062人/4家医院/Frontiers in Cardiovascular Medicine/10800FU×12月/66.5-95.4%），被 AI 错误归属日生研/NSKSD。V10.6 紧急清除并封闭。
+
+### 变更
+
+**Task A · 全库清洁（10个文件）**
+- `references/knowledge-base.md`：删除3.1"1062人最大规模"，替换为完整市一97例数据表
+- `references/whitelist-sources.md`：Frontiers期刊标注修正、浙大/市一条目数据纠正
+- `references/compliance.md`：7处1062人引用全部替换
+- `references/nsksd-writing-style.md`：5处替换
+- `references/topic-selection-rules.md`：3处替换
+- `references/topic-library.md`：3处替换（包括选题#5标题）
+- `references/title-playbook.md`：5处替换（含快速启发词库2条）
+- `references/science-popular-style.md`：5处替换
+- `references/compliance-checklist.md`：1处替换
+- `references/research-papers/2026-04-16-pan-vascular-disease/`：4个文件，双重错误纠正（1062人标签错+浙大归属错）
+
+**Task B · 竞品数据黑名单门控**
+- 新增 `references/competitor-data-blacklist.md`：6条竞品数据指纹
+- 更新 `scripts/fact_auditor.py`：新增规则E `scan_competitor_data()`，集成到 `audit()` 主流程
+
+**正确数据备忘**
+- 市一97例：97例/90天/46.7%斑块/42.1% IMT/《中华养生保健》第42卷第5期/钱申贤教授
+- 浙大RCT：120人（非1062！）/8000FU/天/6个月/楼敏教授/《卒中与脑血管疾病杂志》
+
+---
+
 ## [V10.5] - 2026-04-22 · 排版宽松化 + 重复词软提示 + 读者视角自审 + 修订清单落盘
 
 ### 背景

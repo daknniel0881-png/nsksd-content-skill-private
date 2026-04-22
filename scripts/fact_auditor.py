@@ -77,6 +77,19 @@ SOURCE_BRACKET_PAT = re.compile(
 )
 
 # ─────────────────────────────────────────────
+# 规则 E: competitor_data（V10.6 新增）
+# 竞品数据黑名单门控：1062人 / 4家医院 / 广东双骏 / 10800FU×12月 / 66.5-95.4%
+# ─────────────────────────────────────────────
+COMPETITOR_PATTERNS = [
+    re.compile(r"1062\s*[人名例]"),
+    re.compile(r"4\s*家医院"),
+    re.compile(r"广东双骏"),
+    re.compile(r"Frontiers\s+in\s+Cardiovascular\s+Medicine"),
+    re.compile(r"10800\s*FU.{0,10}12\s*[月个]"),
+    re.compile(r"66\.5\s*[-~]\s*95\.4\s*%"),
+]
+
+# ─────────────────────────────────────────────
 # 规则 D: institution_without_doi
 # ─────────────────────────────────────────────
 INST_YEAR_STUDY_PAT = re.compile(
@@ -217,6 +230,27 @@ def scan_non_whitelist_sources(text: str, whitelist: set[str]) -> list[dict]:
     return findings
 
 
+def scan_competitor_data(text: str) -> list[dict]:
+    """V10.6 规则 E：竞品数据黑名单门控。
+    命中广东双骏研究数据（1062人/4家医院/10800FU×12月/66.5-95.4%等）→ high。
+    这些数据属竞品，不能归属日生研/NSKSD。
+    """
+    findings = []
+    for pat in COMPETITOR_PATTERNS:
+        for m in pat.finditer(text):
+            findings.append({
+                "claim": m.group(0),
+                "reason": (
+                    f"竞品数据命中「{m.group(0)}」：属广东双骏生物科技研究数据，"
+                    "禁止归属日生研/NSKSD（见 references/competitor-data-blacklist.md）"
+                ),
+                "severity": "high",
+                "line": get_line_number(text, m.start()),
+                "context": ctx(text, m.start()),
+            })
+    return findings
+
+
 def scan_institution_without_doi(text: str) -> list[dict]:
     findings = []
     for m in INST_YEAR_STUDY_PAT.finditer(text):
@@ -247,8 +281,9 @@ def audit(md_path: Path, whitelist_path: Path) -> dict:
     weasels = scan_weasel_phrases(body)
     non_wl  = scan_non_whitelist_sources(body, whitelist)
     inst_no_doi = scan_institution_without_doi(body)
+    competitor = scan_competitor_data(body)
 
-    suspicious = orphans + weasels + non_wl + inst_no_doi
+    suspicious = orphans + weasels + non_wl + inst_no_doi + competitor
     # 按行号排序
     suspicious.sort(key=lambda x: x["line"])
 

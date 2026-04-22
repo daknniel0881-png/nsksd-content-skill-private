@@ -27,7 +27,7 @@
 | 源名称 | URL | 类型 | 适用场景 |
 |-------|-----|------|---------|
 | PubMed（美国国立医学图书馆） | https://pubmed.ncbi.nlm.nih.gov | 英文医学文献库 | 纳豆激酶/血栓/IMT/血压 循证研究检索 |
-| Frontiers in Cardiovascular Medicine | https://www.frontiersin.org/journals/cardiovascular-medicine | 英文期刊 | 1062人临床试验发表期刊，纳豆激酶颈动脉斑块数据 |
+| Frontiers in Cardiovascular Medicine | https://www.frontiersin.org/journals/cardiovascular-medicine | 英文期刊 | 行业参考期刊（非日生研/NSKSD研究发表处，引用时请注意区分） |
 | Journal of Cardiovascular Risk（SAGE） | https://journals.sagepub.com/home/cvr | 英文期刊 | 心血管风险因素、血脂干预循证数据 |
 | Atherosclerosis（Elsevier） | https://www.atherosclerosis-journal.com | 英文期刊 | 动脉粥样硬化、颈动脉内中膜厚度（IMT）研究 |
 | Nutrients（MDPI） | https://www.mdpi.com/journal/nutrients | 英文期刊 | 膳食补充剂、功能食品与心血管健康综述 |
@@ -73,9 +73,9 @@
 | 源名称 | URL | 类型 | 适用场景 |
 |-------|-----|------|---------|
 | 日生研官网 | [曲率补充 URL] | 企业官网 | 企业背景、产品规格（FU单位/成分）、合作历史等事实性描述 |
-| NSKSD科学循证文献合辑（内部蓝皮书） | 内部文件，不可对外标注URL | 内部资料 | 1062人临床数据的原始来源文件，内部核验用，不对外引用为源 |
-| 浙江大学医学院附属第二医院官网 | https://www.z2hospital.com | 医院官网 | 楼敏教授团队资质核实、浙大RCT研究机构背书 |
-| 杭州市第一人民医院官网 | https://www.hzhospital.com | 医院官网 | 参与1062人临床试验的医院机构核实 |
+| NSKSD科学循证文献合辑（内部蓝皮书） | 内部文件，不可对外标注URL | 内部资料 | NSKSD临床数据汇编，内部核验用，不对外引用为源 |
+| 浙江大学医学院附属第二医院官网 | https://www.z2hospital.com | 医院官网 | 楼敏教授团队资质核实、浙大120人RCT研究机构背书 |
+| 杭州市第一人民医院官网 | https://www.hzhospital.com | 医院官网 | 钱申贤教授团队、97例市一临床研究机构核实 |
 | 新华社客户端（报道存档） | https://xhpfmapi.zhongguowangshi.com | 央媒 | 新华社相关NSKSD报道引用（2021年、2025年、2026年1月） |
 | 人民日报客户端（报道存档） | https://rmrb.cn | 央媒 | 人民日报营养健康大会报道引用（2025年11月） |
 | 中国新闻网 | https://www.chinanews.com.cn | 央媒 | 浙大RCT认知衰退风险65%报道（2026年1月） |
@@ -141,7 +141,7 @@
 ### 6.4 数据引用强制规范（引用时的写法模板）
 
 正确示例：
-> "在由杭州市第一人民医院等4家医院开展的1062人临床研究中，受试者每日服用NSKSD纳豆激酶10800 FU，持续12个月，结果显示颈动脉斑块改善率为66.5%-95.4%。该研究已发表于 Frontiers in Cardiovascular Medicine。"
+> "在杭州市第一人民医院钱申贤教授团队主持的97例临床研究中，受试者每日口服2粒NSKSD纳豆激酶胶囊，持续90天，结果显示颈动脉斑块改善率为46.7%，中膜增厚改善率42.1%。该研究发表于《中华养生保健》第42卷第5期。"
 
 错误示例：
 > "大量临床研究表明，纳豆激酶能有效改善颈动脉斑块。"

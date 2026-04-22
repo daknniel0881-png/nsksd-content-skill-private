@@ -1,5 +1,42 @@
 # 更新日志
 
+## [V10.1] - 2026-04-22 · 图片规则硬门控（尺寸 + 数量 + 中文优先）
+
+### 背景
+
+此前配图规则只口头约定，AI 出图常见三大病灶：
+1. 公众号封面尺寸写成 900×500（错的，实际 900×383）
+2. 小红书/视频封面完全没定义
+3. 内文配图数量参差、图内文字经常英文主导
+
+### 新增
+
+- **`scripts/image_size_check.py`**：Pillow 实现的图片硬门控，三道扫描
+  - `cover-wechat.png` 必须 900×383
+  - `cover-xhs.png`（若存在）必须 1242×1660
+  - `figure-*.png` 数量硬下限 3 张 / 上限 8 张
+  - 可选 `--ocr` 启用 pytesseract 做图内中英文比例扫描（英文主导直接 fail）
+  - 向后兼容旧命名 `cover.png`（带 warning）
+  - 退出码：0 通过 / 1 违规 / 2 文件错
+
+### 修改
+
+- **`scripts/interactive/trigger_watcher.sh`**：Step 4.5 三门控（layout_check → data_audit → **image_size_check**），图片不合规 trigger.status 打 `rejected_image_check`，不发 IM、不落盘
+- **`agents/image-designer.md`**：
+  - 配图数量改为"3 张硬下限 / 5 张标配 / 8 张上限"（原先 5 张起步）
+  - 新增 V10.1 尺寸硬规范表（公众号 900×383 / 小红书 1242×1660）
+  - 新增 V10.1 图内文字硬规范（中文优先，英文仅限品牌词/括号内单位）
+  - 提示词模板拆 B.1 公众号封面 / B.2 小红书竖封面 / B.3 内文配图三套
+  - 落盘文件名 `cover.png` → `cover-wechat.png` + `cover-xhs.png`
+- **`docs/playbooks/cover-image.md`**：同步 V10.1 尺寸 + 数量 + 中文优先三条硬规矩
+- **`SKILL.md`** frontmatter：版本号 V10.0 → V10.1，description 更新为 5 点升级
+
+### 发布规则
+
+图片硬门控是发布前第三道闸门，和 layout_check / data_audit 并列：任一不过直接退回重生成，不发公众号。
+
+---
+
 ## [V10.0] - 2026-04-22 · 数据事实硬门控 + S 级种子选题库 + Windows 选题引擎修复
 
 ### 背景

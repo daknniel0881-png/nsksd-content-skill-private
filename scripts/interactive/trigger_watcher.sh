@@ -148,6 +148,28 @@ json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
         return
       fi
       log "  ✅ 双门控通过"
+
+      # V10.1 第三道硬门控：图片尺寸 + 数量 + 中文优先
+      local STEP4_IMG_DIR="$SKILL_DIR/artifacts/${session_id}/step4-images"
+      if [ -d "$STEP4_IMG_DIR" ]; then
+        log "  → image_size_check.py (V10.1)"
+        if ! python3 "$SKILL_DIR/scripts/image_size_check.py" "$STEP4_IMG_DIR" >> "$work_log" 2>&1; then
+          log "❌ 图片硬门控未通过（尺寸错/内文图<3张/缺公众号封面），退回重生成，不发布"
+          python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_image_check'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+          mv "$trigger_file" "$DONE_DIR/"
+          return
+        fi
+        log "  ✅ 三门控通过"
+      else
+        log "  ⚠️ 未找到 $STEP4_IMG_DIR，跳过图片硬门控"
+      fi
     else
       log "  ⚠️ 未找到 $STEP3_MD，跳过双门控（Claude 流水线可能把产物放别处）"
     fi

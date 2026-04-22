@@ -224,9 +224,26 @@ def replace_all_images(html, article_dir, token):
 def push_draft(token, title, content, thumb_media_id, author="", digest=""):
     """推送文章到草稿箱
 
-    Args:
-        digest: 文章摘要，不传则由微信自动截取正文前54字
+    digest（V10.6.1 硬约束）：
+    - 必须传且非空白；空字符串/None 触发 SystemExit，禁止走微信自动截首段兜底
+    - 长度 ≤ 54 字（微信硬上限），超出截断为 53 字 + "…" 并 stderr WARN
     """
+    if not digest or not digest.strip():
+        print(
+            "错误: digest 缺失（V10.6.1 硬约束）——必须传一句话摘要（≤54字），"
+            "禁止微信自动截首段。请在 article_dir 放 step3-digest.txt 或用 --digest 传入",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    digest = digest.strip()
+    if len(digest) > 54:
+        truncated = digest[:53] + "…"
+        print(
+            f"[wechat-digest] WARN digest 超长 {len(digest)} 字 → 截断为 54 字: {truncated!r}",
+            file=sys.stderr,
+        )
+        digest = truncated
+
     url = f"https://api.weixin.qq.com/cgi-bin/draft/add?access_token={token}"
 
     article = {
@@ -237,9 +254,8 @@ def push_draft(token, title, content, thumb_media_id, author="", digest=""):
         "thumb_media_id": thumb_media_id,
         "need_open_comment": 0,
         "only_fans_can_comment": 0,
+        "digest": digest,
     }
-    if digest:
-        article["digest"] = digest
 
     data = {"articles": [article]}
 
@@ -304,6 +320,7 @@ def main():
     parser.add_argument("--author", "-a",
                         default=CONFIG.get("wechat", {}).get("author", ""),
                         help="作者名")
+    parser.add_argument("--digest", help="一句话摘要（≤54字）。不传则自动读 article_dir/step3-digest.txt（V10.6.1 硬约束）")
     parser.add_argument("--dry-run", action="store_true",
                         help="只做排版和图片上传，不推送草稿箱（用于测试）")
     args = parser.parse_args()
@@ -425,16 +442,32 @@ def main():
         print("  请用 --cover 指定封面图路径，或在 images/ 目录放一张图片")
         sys.exit(1)
 
+    # ── 6.5 加载 digest（V10.6.1 硬约束）──────────────────────────────
+    digest = (args.digest or "").strip()
+    if not digest:
+        for cand in (article_dir / "step3-digest.txt",
+                     article_dir / "digest.txt",
+                     article_dir.parent / "step3-digest.txt"):
+            if cand.exists():
+                digest = cand.read_text(encoding="utf-8").strip()
+                print(f"  ✓ 加载摘要: {cand} ({len(digest)} 字)")
+                break
+    if not digest:
+        print("\n错误: 未找到摘要（V10.6.1 硬约束）")
+        print("  请用 --digest '<一句话>' 传入，或在 article_dir 放 step3-digest.txt")
+        sys.exit(1)
+
     # ── 7. 推送草稿箱 ────────────────────────────────────────────────
     if args.dry_run:
         print(f"\n[dry-run] 跳过推送草稿箱")
         print(f"  标题: {title}")
         print(f"  封面 media_id: {thumb_media_id}")
         print(f"  HTML 长度: {len(html)} 字符")
+        print(f"  摘要: {digest} ({len(digest)} 字)")
         return
 
     print(f"\n推送到草稿箱...")
-    media_id = push_draft(token, title, html, thumb_media_id, author)
+    media_id = push_draft(token, title, html, thumb_media_id, author, digest=digest)
 
     if media_id:
         print(f"\n{'='*40}")

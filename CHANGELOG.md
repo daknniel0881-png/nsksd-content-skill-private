@@ -40,10 +40,11 @@
 | step3-digest.txt 落盘位置 | 与 step3-article.md 同目录（artifacts/<SID>/） | 最大复用现有约定，nsksd_publish 找文件最直观 |
 | figures 是否保留 | 删 | PDF 原文还在，重生成只需一条命令，体积 85 MB 不值 |
 
-### 遗留
+### 遗留（V10.6.1 收尾）
 
-- `scripts/format/publish.py::push_draft` 是独立副本（旧代码路径），本次只改了 `scripts/lib/wechat_publish_core.py` 主路径——后续如有重构应合并两处
-- 现有 artifacts/ 下已经生成的老文章目录没有 `step3-digest.txt`，重新发布旧稿会被拦截，需手动补一个摘要文件
+- ~~`scripts/format/publish.py::push_draft` 副本~~ → **已同步硬约束**（fail-closed + 超长截断 + WARN），同时给 `main()` 加 `--digest` CLI 参数 + 自动加载 `step3-digest.txt`/`digest.txt`
+- ~~老 artifacts 需手动补 digest~~ → 实测 `artifacts/20260420-133717` `artifacts/20260420-142202` 均为空目录，无历史稿件待补
+- 测试验证：`format/publish.py::push_draft` 空 digest → SystemExit(1) ✅、80 字 → 截 54 + WARN ✅
 
 ---
 

@@ -131,7 +131,9 @@ def run_interactive_setup() -> dict:
     config["wechat"]["author"] = ask("文章作者名（可留空，默认显示公众号名称）", "")
 
     print("\n--- 飞书凭证 ---")
-    print("📎 获取地址：https://open.feishu.cn/app  →  选择/创建自建应用  →  凭证与基础信息")
+    # 修复 问题 #3：旧地址 https://open.feishu.cn/app 会 404，改为 launcher 直链
+    print("📎 一键直达开放平台：https://open.feishu.cn/page/launcher?from=backend_oneclick")
+    print("   路径：选择/创建自建应用  →  凭证与基础信息")
     print("   - app_id（cli_xxx 格式）")
     print("   - app_secret")
     print("   open_id 查询：https://open.feishu.cn/api-explorer  →  batch_get_id 按手机号反查")

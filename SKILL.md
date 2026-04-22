@@ -1,11 +1,51 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.7）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.7 **标题选题方法论大融合**：45 爆款公式（DBS 30 + 全网 5 + 本地 10）、八维坐标系 M1-M8（+招商 +名人古法）、三层代码去重硬线化（M7 ≤1/日 / M6+M7 ≤2/日 / C 端 ≥6/10）、反门店同质化 25 冷冻词、C 端 70% + B 端 30% 硬比例、医广红线三库双扫、反面示例黑名单 4 类；topic-title-workflow.md 端到端 Playbook；修 SKILL.md 老门店唯一受众口径 + logs/topic-history.jsonl 空转真因 + title-playbook.md 从未进主 prompt。V9.6 **Guided 引导反馈卡 E2E 打通**（blue header + input max_length=1000 + bisect 双 button + 锁定态灰化）；修 3 个死活不通的真因（danger button 校验 + disabled type 坑 + listener 凭证注入）；新增 docs/playbooks/guided-feedback-card.md 踩坑全录。V9.5 飞书云文档+公众号草稿**双推铁律**（飞书永远保底，公众号看凭证追加）；修 lark-cli 相对路径 + jq doc_url 字段 2 个上线拦路 bug；trigger_watcher Step5 统一 --dir 目录签名；setup_cli 加查询链接提示。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护（sanitizer + 13/13 测试）、选题库分块重构（M1-M6 资讯模块 + 月度归档 + topic-crawler）、4.16 PDF 入库 + 选题点拆解。保留 V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.8）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.8 **Windows 适配大修**：修 14 条客户端测试踩坑（daily-topics.ps1 缺失 / 飞书开放平台 URL 错 / send_notify 不支持 open_id / 中文消息乱码 / run_listener_win.bat 不注入凭证 / venv 路径硬编码 / 安全软件白名单 / Bash 工具路径坑）；新增 scripts\daily-topics.ps1 Windows 定时入口；新增 scripts\setup_cli.ps1 Windows 交互配置包装；重写 run_listener_win.bat 自动注入凭证 + 校验 venv + 自动装 lark-oapi；新增 docs\playbooks\windows-troubleshooting.md 整本排障说明书。V9.7 **标题选题方法论大融合**：45 爆款公式（DBS 30 + 全网 5 + 本地 10）、八维坐标系 M1-M8（+招商 +名人古法）、三层代码去重硬线化（M7 ≤1/日 / M6+M7 ≤2/日 / C 端 ≥6/10）、反门店同质化 25 冷冻词、C 端 70% + B 端 30% 硬比例、医广红线三库双扫、反面示例黑名单 4 类。V9.6 **Guided 引导反馈卡 E2E 打通**。V9.5 飞书云文档+公众号草稿**双推铁律**。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护。V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.7）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.8）
 
-## V9.7 核心升级（本版 · 2026-04-21）
+## V9.8 核心升级（本版 · 2026-04-22 · Windows 适配大修）
+
+基于客户端 Windows 11 一整晚实测（`nska-windows-test-report.md`）反馈的 14 条问题系统性修复：
+
+1. **补齐 Windows 定时入口 `scripts/daily-topics.ps1`**（问题 #1 #3）：V9.7 之前 `setup.ps1` 引用但文件缺失导致 schtasks 注册失败。新脚本对标 `run_nsksd_daily.sh`，4 步（生成选题 / 构造多选卡 / 启动 listener + 推卡 / 启动 watcher）全走 PowerShell + Python，不依赖 Git Bash
+2. **修飞书开放平台 URL 错位**（问题 #3）：`setup_cli.py` 里 `https://open.feishu.cn/app` → 改为 `https://open.feishu.cn/page/launcher?from=backend_oneclick`（launcher 直链，旧地址会 404）
+3. **`send_notify.py` 支持 `--open-id` / `--chat-id` 二选一**（问题 #8）：原脚本硬绑 `--chat-id` + `receive_id_type=chat_id`，但测试配置里只有 `target_open_id`。新版互斥参数组 + 自动从 `~/.nsksd-content/config.json` 兜底读
+4. **中文消息乱码全链路修复**（问题 #11）：Windows 控制台 GBK 编码 + Git Bash curl 未声明 charset 双重成因；`send_notify.py` 开头 `sys.stdout = TextIOWrapper(..., encoding='utf-8')`；`daily-topics.ps1` 全脚本强制 `chcp 65001` + `PYTHONIOENCODING=utf-8` + `Content-Type: application/json; charset=utf-8`
+5. **`run_listener_win.bat` 重写**（问题 #12）：原脚本三大坑（venv 路径硬编码 bad interpreter / `lark-oapi` 未装 / 环境变量未注入）全治。新脚本自动从 `config.json` + `.env` 注入凭证、校验 venv 有效性失效则重建、检测 `lark-oapi` 缺失则 `pip install`
+6. **新增 `scripts/setup_cli.ps1` Windows 交互配置包装**（问题 #4）：取代"让用户手动编辑 config.json"的反 Agent 模式，一次交互写入 `%USERPROFILE%\.nsksd-content\config.json`
+7. **新增 `docs/playbooks/windows-troubleshooting.md` 整本排障说明书**（问题 #1 #2 #6 #7 #9 #12）：Bash 工具无限循环坑 / 安全软件白名单 / venv 失效 / 多选卡回调不触发 → 事件订阅未配置，一站式答疑
+8. **Bash 工具问题官方结论固化**：不要手动复制 `bash.exe`（会触发 Claude Code 智能路径适配无限循环），唯一正解是**重装 Git for Windows + 勾选 Git Bash Here**（2026-04-22 已客户端验证）
+
+### Windows 安装 Checklist（V9.8 新增）
+
+```powershell
+# 1. 前置：Python 3.8+ / Node.js 18+ / Git for Windows（勾 Git Bash Here）/ Claude Code
+# 2. clone
+git clone https://github.com/daknniel0881-png/nsksd-content-skill-private.git %USERPROFILE%\.claude\skills\nsksd-content
+cd %USERPROFILE%\.claude\skills\nsksd-content
+
+# 3. 依赖 + 定时任务
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+
+# 4. 交互式配置凭证
+powershell -ExecutionPolicy Bypass -File scripts\setup_cli.ps1
+
+# 5. 启动监听器（飞书多选卡回调必需）
+cd scripts\interactive
+.\run_listener_win.bat start
+
+# 6. 手动触发验收
+cd ..
+powershell -ExecutionPolicy Bypass -File scripts\daily-topics.ps1
+```
+
+遇坑翻 `docs/playbooks/windows-troubleshooting.md`。
+
+---
+
+## V9.7 核心升级（2026-04-21）
 
 1. **标题 45 公式融合**（`references/title-playbook.md` 全文重写）：
    - **F1-F10**：本地原有 10 公式（数字党/反常识/悬念钩子/对立冲突/权威背书/场景代入/指南型/提问型/反转型/情绪共鸣）

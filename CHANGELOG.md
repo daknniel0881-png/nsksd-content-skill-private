@@ -1,5 +1,48 @@
 # 更新日志
 
+## [V9.8] - 2026-04-22 · Windows 适配大修
+
+### 新增
+
+- **`scripts/daily-topics.ps1`**：Windows 每日 10:00 定时任务入口，对标 macOS 的 `run_nsksd_daily.sh`，4 步流水线（选题生成 / 多选卡构造 / listener + 推卡 / watcher 守护）全走 PowerShell + Python，UTF-8 强制，`Load-Credentials` 从 `~/.nsksd-content/config.json` 或 `scripts/.env` 自动注入凭证
+- **`scripts/setup_cli.ps1`**：Windows 交互式配置包装器，取代让用户手动编辑 config.json 的反 Agent 模式
+- **`docs/playbooks/windows-troubleshooting.md`**：整本 Windows 排障说明书，9 大类坑（Bash 路径坑 / 中文乱码 / 定时脚本缺失 / 飞书 URL / 凭证未注入 / 多选卡回调 / 安全软件误报 / venv 失效 / 完整 Checklist）
+
+### 修复（14 条客户端测试踩坑 · 来源 `nska-windows-test-report.md`）
+
+| # | 问题 | 修法 |
+|---|------|------|
+| 1 | `daily-topics.ps1` 缺失，`setup.ps1` Step 3.5 报错 | 新建文件 |
+| 2 | 缺少自动初始化逻辑 | `setup.ps1` 已幂等注册 schtasks，无需用户手动 |
+| 3 | 飞书开放平台 URL `open.feishu.cn/app` 会 404 | `setup_cli.py` 改为 `open.feishu.cn/page/launcher?from=backend_oneclick` |
+| 4 | 配置流程反 Agent（让用户手动编 config.json） | 新增 `setup_cli.ps1` 交互式包装 |
+| 5 | `target_open_id` 硬编码 | `setup_cli.py` 交互收集 + `send_notify.py` 从 config 兜底 |
+| 6 | 飞书 API 认证流程错用 MCP 工具 | `send_notify.py` 用 tenant_access_token 直连 HTTP |
+| 7 | Bash 工具在 Windows 上路径无限循环 | `windows-troubleshooting.md` 固化官方解法：重装 Git for Windows |
+| 8 | `send_notify.py` 只支持 `--chat-id` | 改为 `--chat-id` / `--open-id` 互斥参数组，自动识别 `receive_id_type` |
+| 9 | 安全软件把 `.ps1` 误报为蠕虫 | `windows-troubleshooting.md` 提供白名单 + PS2EXE 两套方案 |
+| 10 | 缺飞书 CLI 自动安装流程 | `setup.ps1` Step 1 已内置 `bun install -g @larksuiteoapi/lark-cli` 幂等自动安装 |
+| 11 | 飞书消息中文乱码 `���` | 全链路 UTF-8 强制：`daily-topics.ps1` 开头 `chcp 65001` + `PYTHONIOENCODING=utf-8`；`send_notify.py` `sys.stdout = TextIOWrapper(..., encoding='utf-8')`；HTTP 请求 `Content-Type: application/json; charset=utf-8` + `ensure_ascii=False.encode('utf-8')` |
+| 12-A | `run_listener_win.bat` venv 路径硬编码 `bad interpreter` | 重写后启动前校验 `venv/Scripts/python.exe`，失效自动重建 |
+| 12-B | `ModuleNotFoundError: lark_oapi` | 启动前 `python -c "import lark_oapi"`，缺失自动 `pip install lark-oapi` |
+| 12-C | listener 环境变量未注入 `LARK_APP_ID` | 启动前从 `config.json` + `.env` 自动注入到环境变量 |
+| 13-14 | PowerShell 无法被 Claude Code 直接调用 | 设计上 Skill 不依赖 Bash 工具，PowerShell 脚本由 schtasks 触发 |
+
+### 代码变更
+
+- `scripts/setup_cli.py`：飞书开放平台 URL 修正
+- `scripts/interactive/send_notify.py`：`--chat-id` / `--open-id` 互斥参数组、UTF-8 stdout 强制、config.json 兜底读、HTTP 请求固定 `charset=utf-8`
+- `scripts/interactive/run_listener_win.bat`：完全重写（~105 行），加凭证注入 + venv 校验 + 依赖自愈 + 精准 stop/restart
+- `SKILL.md`：frontmatter description 加 V9.8 要点、V9.8 核心升级章节、Windows 安装 Checklist
+
+### 待测（下一轮）
+
+- [ ] Windows 客户端把本版 pull 下来重跑 14 条测试场景
+- [ ] 确认飞书多选卡回调在新 `run_listener_win.bat` 下稳定触发
+- [ ] 确认 `daily-topics.ps1` schtasks 触发后日志完整
+
+---
+
 ## [V9.7] - 2026-04-21
 
 ### 新增（标题选题方法论大融合）

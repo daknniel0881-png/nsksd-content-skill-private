@@ -1,7 +1,7 @@
 # nsksd-content-skill
 
-> 日生研NSKSD纳豆激酶 · 自媒体内容工厂 Skill（V9.4）
-> 客户专用版 · 零硬编码 · 独立部署 · 飞书云文档保底
+> 日生研NSKSD纳豆激酶 · 自媒体内容工厂 Skill（V9.9）
+> 客户专用版 · 零硬编码 · 独立部署 · Mac/Windows 双端适配 · 飞书云文档保底
 
 **这是客户使用的 Skill，不依赖任何个人写作风格或个人凭证。**
 
@@ -28,6 +28,18 @@ guard.py 硬门控 + 30 天滚动去重 + 合规硬扫
 ```
 
 ---
+
+## V9.9 重要变更
+
+- **排版硬约束**：段落 ≤100 字 + 必须 3-6 个 `##` 小标题，`scripts/layout_check.py` 退码非 0 阻塞发布
+- **写作风格反陷阱**：之前规则禁用 # 小标题导致大段堆字，V9.9 反过来强制分区分块
+- **article-writer 自查升级**：3 轮 → 5 轮，第 5 轮专查段落字数和小标题数量
+
+## V9.8 重要变更（Windows 适配大修）
+
+- 修 14 条客户端测试踩坑（UTF-8 乱码 / open_id 缺失 / venv 自愈 / 凭证自动注入等）
+- 新增 `scripts/daily-topics.ps1` + `scripts/setup_cli.ps1`，补齐 Windows 定时入口
+- 新增 `docs/playbooks/windows-troubleshooting.md`，9 节排障说明书
 
 ## V9.4 重要变更
 
@@ -214,6 +226,19 @@ nsksd-content/
 ---
 
 ## 更新日志
+
+### V9.9（2026-04-22）
+
+- 文章排版硬约束：段落 ≤100 字 + 必须 3-6 个 `##` 小标题
+- 新增 `scripts/layout_check.py`，退码非 0 阻塞发布
+- article-writer 自查 3 轮 → 5 轮，第 5 轮查排版
+
+### V9.8（2026-04-22）
+
+- Windows 适配大修，修 14 条客户端测试踩坑
+- 新增 `scripts/daily-topics.ps1` + `scripts/setup_cli.ps1`
+- 新增 `docs/playbooks/windows-troubleshooting.md`
+- `send_notify.py` UTF-8 加固 + open_id/chat_id 互斥
 
 ### V9.4（2026-04-21）
 

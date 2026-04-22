@@ -1,5 +1,62 @@
 # 更新日志
 
+## [V10.5] - 2026-04-22 · 排版宽松化 + 重复词软提示 + 读者视角自审 + 修订清单落盘
+
+### 背景
+
+第十四次客户沟通反馈 6 件事：
+1. 排版拥挤，段与段之间贴死，缺页边距（对比丁香医生/人民日报健康版）
+2. 同段/跨段用词重复，AI 味重，没扫描机制
+3. 逻辑流/转折生硬，缺读者视角二次审视
+4. 写作风格缺"读者优先"明文原则
+5. 没有半自动修订清单，发布前审查全靠记忆
+6. 希望参考丁香医生 + 人民日报健康版 4 篇公号样本
+
+V10.5 一次落地 5 项工程改动 + 1 项样本参考（样本已整合进 `references/external-articles/`）。
+
+### 新增
+
+- **`scripts/redundancy_check.py`**：软提示扫描（exit 永远 0 不阻断）
+  - 滑动 n-gram 分词（2-4 字中文子串）+ 碎片去噪（子串频次 ≥ 70% 才算碎片）
+  - 三档检查：高频实词（≥8 次 warn）/ 段首重复（≥3 次 warn）/ 近邻重复（连续 2 段出现）
+  - stdlib only（re/collections/argparse/pathlib），0 依赖
+  - 产物落 `artifacts/<SID>/redundancy-warns.json`
+- **`templates/revision-checklist.md`**：修订清单骨架模板
+  - 6 占位符：`{{SID}}` `{{TIMESTAMP}}` `{{FACT_ISSUES}}` `{{CITATION_ISSUES}}` `{{REDUNDANCY_WARNS}}` `{{SELF_AUDIT_NOTES}}`
+  - 5 section：事实门控 / 引用规范 / 重复词软提示 / 读者视角自审 / 发布前人工确认
+
+### 修改
+
+- **`themes/v5-sample.json`**：
+  - `styles.wrapper` 新增 `padding_top: "15px"` + `padding_bottom: "15px"`
+  - `styles.p` 的 `margin` 从 `"0px"` 改为 `"1.1em 0"`
+  - 视觉观感直接对齐丁香医生/人民日报健康版
+- **`agents/article-writer.md`**：
+  - 步骤 C 与步骤 D 之间插入 **Step 3d 读者视角自审**
+  - article-writer 读一遍 step3-article.md，模拟首次读者回答 5 问（钩子/逻辑流/冗余/结尾/配图），就地修改正文
+  - 自审记录落 `artifacts/<SID>/step3d-self-audit.md`
+  - 然后读取 `templates/revision-checklist.md` + 抓取各质检报告，填充占位符落 `artifacts/<SID>/revision-checklist.md`
+- **`scripts/interactive/trigger_watcher.sh`**：
+  - fact_auditor 硬门控通过后，追加 redundancy_check 软提示（`|| true` 不阻断）
+  - 产物 `artifacts/<SID>/redundancy-warns.json`
+
+### 决策拍板（V10.5 三卡点）
+
+| 卡点 | 选择 | 理由 |
+|------|------|------|
+| 段间距 | 1.1em | 丁香医生/人民日报健康版实测观感，0.8em 仍偏紧 |
+| checklist 落盘 | `artifacts/<SID>/` | 与 step1-4 产物同目录，一眼可查，无需跨目录跳转 |
+| 重复词处置 | 软提示（warn） | 不阻断发布，作者按实际文体自判是否修；硬门控会误杀"排比强调"等合规用法 |
+
+### 验证
+
+- redundancy_check 测试（`/tmp/test_v1041.md`）：19 条软提示，exit 0 ✅
+- trigger_watcher.sh 语法：`bash -n` 通过 ✅
+- article-writer.md 步骤 3d 插入在第 212 行，原有 A/B/B2/C/D/E/F/G 全保留 ✅
+- v5-sample.json 两处改动生效，其余字段未污染 ✅
+
+---
+
 ## [V10.4.1] - 2026-04-22 · fact_auditor 放宽修复（消除误杀）
 
 ### 背景

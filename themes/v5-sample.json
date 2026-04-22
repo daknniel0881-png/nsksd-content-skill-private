@@ -17,6 +17,8 @@
       "line_height": "1.8",
       "padding_left": "15px",
       "padding_right": "15px",
+      "padding_top": "15px",
+      "padding_bottom": "15px",
       "box_sizing": "border-box",
       "font_style": "normal",
       "font_weight": "400",
@@ -25,7 +27,7 @@
     },
     "p": {
       "white_space": "normal",
-      "margin": "0px",
+      "margin": "1.1em 0",
       "padding": "0px",
       "box_sizing": "border-box"
     },

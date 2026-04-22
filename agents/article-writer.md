@@ -209,6 +209,71 @@ outline = confirmed_item["outline"]
    - Python 脚本逐段统计字数，任何自然段 > 100 字 → 拆成两段
    - 小标题不能是「背景/方法/结论」式目录词，必须是完整观点句
 
+### 步骤 3d：读者视角自审
+
+> **在步骤 C（五轮自查）完成后、步骤 D（URL 验证）开始前执行。**
+
+从头完整读一遍 `artifacts/<SID>/step3-article.md`，模拟"第一次看这篇文章的读者"，逐一回答以下 5 个问题：
+
+1. **开头钩子**：前 50-80 字有没有抓住我？如果我是忙碌的门店老板，3 秒内会不会划走？
+2. **逻辑流**：每个段落/小标题之间的转折，我跟得上吗？有没有突兀的跳跃（上一段谈问题，下一段突然说结论，中间没有过渡）？
+3. **冗余**：有没有上一段说完、下一段又重复同一个意思的地方？
+4. **结尾**：收尾是否自然？开放式问句有没有问到读者真正在意的事？
+5. **配图**：如果这篇要配 3-8 张图，哪些段落需要图、哪些段落纯文字就够了？
+
+**自审结果处理：**
+
+- 发现问题 → 直接就地修改 `step3-article.md`，不要只记录不改
+- 每条发现（含"无问题"的确认）写入 `artifacts/<SID>/step3d-self-audit.md`，格式如下：
+
+```markdown
+# Step 3d 读者视角自审 - <SID>
+
+审阅时间：<ISO8601>
+
+## 1. 开头钩子
+评估：[是否抓人 / 问题描述]
+处置：[已修改 / 无需修改]
+
+## 2. 逻辑流
+评估：[是否流畅 / 哪里有跳跃]
+处置：[已修改 / 无需修改]
+
+## 3. 冗余
+评估：[是否有重复段落 / 具体位置]
+处置：[已删减 / 无需修改]
+
+## 4. 结尾
+评估：[开放式/封闭式 / 是否自然]
+处置：[已修改 / 无需修改]
+
+## 5. 配图建议
+[列出需要配图的段落小标题 + 建议图片类型]
+```
+
+**落盘 revision-checklist.md（合并步骤）：**
+
+自审写完后，执行以下合并动作，生成 `artifacts/<SID>/revision-checklist.md`：
+
+1. 读取 `templates/revision-checklist.md`（骨架模板）
+2. 替换占位符：
+   - `{{SID}}` → 当前 session ID
+   - `{{TIMESTAMP}}` → 当前 ISO8601 时间戳
+   - `{{FACT_ISSUES}}` → 读取 `artifacts/<SID>/step3-facts.json`，提取所有 `verification_status: "failed"` 或 `"pending"` 的条目，格式化为 `- placeholder_id: 原始占位符 → 处置说明`；若全部 verified 则写 `（无待处理项）`
+   - `{{CITATION_ISSUES}}` → 步骤 C 引用扫描中命中的问题；若无则写 `（无）`
+   - `{{REDUNDANCY_WARNS}}` → 步骤 C AI 味/重复词扫描命中的警告；若无则写 `（无）`
+   - `{{SELF_AUDIT_NOTES}}` → 逐条复制 `step3d-self-audit.md` 的处置结论（每条一行，格式：`[问题类型] 评估结论 → 处置`）
+3. 将填充后内容写入 `artifacts/<SID>/revision-checklist.md`
+
+**Step 3d 交付物：**
+
+```
+artifacts/<SID>/step3d-self-audit.md      ← 自审详细记录
+artifacts/<SID>/revision-checklist.md    ← 合并后修订清单（发布前人工确认用）
+```
+
+---
+
 ### 步骤 D：URL 验证（v9.3 新增硬步骤）
 
 对文中所有 URL 逐个用 WebFetch 验证：

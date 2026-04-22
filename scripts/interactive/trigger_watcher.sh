@@ -191,6 +191,12 @@ json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
         return
       fi
 
+      # V10.5 软提示（不阻断）：重复词/段首/近邻重复扫描
+      log "  → redundancy_check.py (V10.5 软提示，exit code 永远 0)"
+      python3 "$SKILL_DIR/scripts/redundancy_check.py" "$STEP3_MD" \
+        --out "$SKILL_DIR/artifacts/${session_id}/redundancy-warns.json" \
+        >> "$work_log" 2>&1 || true
+
       # V10.1 第三道硬门控：图片尺寸 + 数量 + 中文优先
       local STEP4_IMG_DIR="$SKILL_DIR/artifacts/${session_id}/step4-images"
       if [ ! -d "$STEP4_IMG_DIR" ]; then

@@ -1,11 +1,79 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.9）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.9 **文章排版硬约束**：段落 ≤ 100 字 + 每篇 3-6 个 `##` 二级小标题 + `layout_check.py` 脚本做发布前硬门控；解决客户端吐槽"大段文字无小标题可读性差"问题。V9.8 **Windows 适配大修**：修 14 条客户端测试踩坑（daily-topics.ps1 缺失 / 飞书开放平台 URL 错 / send_notify 不支持 open_id / 中文消息乱码 / run_listener_win.bat 不注入凭证 / venv 路径硬编码 / 安全软件白名单 / Bash 工具路径坑）；新增 scripts\daily-topics.ps1 Windows 定时入口；新增 scripts\setup_cli.ps1 Windows 交互配置包装；重写 run_listener_win.bat 自动注入凭证 + 校验 venv + 自动装 lark-oapi；新增 docs\playbooks\windows-troubleshooting.md 整本排障说明书。V9.7 **标题选题方法论大融合**：45 爆款公式（DBS 30 + 全网 5 + 本地 10）、八维坐标系 M1-M8（+招商 +名人古法）、三层代码去重硬线化（M7 ≤1/日 / M6+M7 ≤2/日 / C 端 ≥6/10）、反门店同质化 25 冷冻词、C 端 70% + B 端 30% 硬比例、医广红线三库双扫、反面示例黑名单 4 类。V9.6 **Guided 引导反馈卡 E2E 打通**。V9.5 飞书云文档+公众号草稿**双推铁律**。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护。V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V10.0）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V10.0 **数据事实硬门控 + S 级种子选题库**：①新增 `scripts/data_audit.py` 六道扫描（数字断言缺源/医广绝对化/日本禁词/捏造信号短语/FU 单位错写/孤证孤立健康陈述），在 layout_check 之后做发布前第二道硬门控，由 `trigger_watcher.sh` Step 4.5 自动拦截；②选题阶段就强制走数据核查（topic-scout 读 `references/data-verification.md` v10.0 再选题，禁止"据研究/有数据显示/权威报告"等无出处幻觉信号）；③收录海斌原文《蓝皮书发布｜纳豆激酶首次被纳入国家级健康管理专家指引》到 `references/external-articles/mp.weixin.qq.com/landmark-articles-2026-04-22-bluebook-nsk/` 作为 S 级种子，附 `SEED-TOPICS.md` 拆解 13 条政策权威选题 + 独家一级权威事实 10 条（蓝皮书名称/附录/主编单位/4000-8000 FU 剂量/四大机制/参编身份）+ 交叉验证配对表 + 禁止混搭 5 条红线；④Windows 选题引擎修复（stdin 管道传 prompt 取代字面量化 / ≥10 条不足自动重试 2 次 / 回补"维度≥5 + 5 类句式各 1 条"多样性硬约束 / 路径 POSIX 化 / JSON 解析失败分级 exit code）；⑤飞书消息推送硬编码步骤写入发布流水线，修复"只写云盘不推 IM"断点。V9.9 **文章排版硬约束**：段落 ≤ 100 字 + 每篇 3-6 个 `##` 二级小标题 + `layout_check.py` 脚本做发布前硬门控；解决客户端吐槽"大段文字无小标题可读性差"问题。V9.8 **Windows 适配大修**：修 14 条客户端测试踩坑（daily-topics.ps1 缺失 / 飞书开放平台 URL 错 / send_notify 不支持 open_id / 中文消息乱码 / run_listener_win.bat 不注入凭证 / venv 路径硬编码 / 安全软件白名单 / Bash 工具路径坑）；新增 scripts\daily-topics.ps1 Windows 定时入口；新增 scripts\setup_cli.ps1 Windows 交互配置包装；重写 run_listener_win.bat 自动注入凭证 + 校验 venv + 自动装 lark-oapi；新增 docs\playbooks\windows-troubleshooting.md 整本排障说明书。V9.7 **标题选题方法论大融合**：45 爆款公式（DBS 30 + 全网 5 + 本地 10）、八维坐标系 M1-M8（+招商 +名人古法）、三层代码去重硬线化（M7 ≤1/日 / M6+M7 ≤2/日 / C 端 ≥6/10）、反门店同质化 25 冷冻词、C 端 70% + B 端 30% 硬比例、医广红线三库双扫、反面示例黑名单 4 类。V9.6 **Guided 引导反馈卡 E2E 打通**。V9.5 飞书云文档+公众号草稿**双推铁律**。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护。V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.9）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V10.0）
 
-## V9.9 核心升级（本版 · 2026-04-22 · 文章排版硬约束）
+## V10.0 核心升级（本版 · 2026-04-22 · 数据事实硬门控 + S 级种子 + Windows 选题引擎修复）
+
+### 为什么要做 V10.0？
+
+第十二次/十三次客户沟通同时暴露三件事：**(1)** 模型会在引用数据时偷懒瞎编"据研究/有数据显示"；**(2)** Windows 定时选题生成不足 10 条、角度单一、飞书消息没推送；**(3)** 客户团队已有一篇蓝皮书级别的政策权威文章（海斌原文），但 skill 不知道它的存在，每次写作都从零找素材。V10.0 一次治这三个病根。
+
+### 1. 数据事实硬门控（最高优先级）
+
+**机制层**：`scripts/data_audit.py` 新脚本 · 六道扫描 · 退码非 0 阻塞发布：
+
+| 扫描项 | 规则 |
+|-------|------|
+| `numbers_without_source` | 百分比/倍数/FU/人数/年份 60 字上下文无来源标注 → 违规 |
+| `medical_absolutes` | 治疗/治愈/根治/当天见效/第一/唯一/国家批准疗效 → 违规 |
+| `japan_forbidden` | 日本进口/日本原装/日式工艺/日本匠心 → 违规 |
+| `fabrication_signals` | 据研究/有数据显示/权威报告/相关研究表明 + 后置无《》或 URL → 违规 |
+| `unit_misuse` | 纳豆激酶剂量写成 mg/IU/毫克 → 违规（FU 唯一合法） |
+| `isolated_claims` | 健康功效核心陈述（降低血栓/改善血脂）sources_checked <2 条或 authority_level=1 <1 条 → 违规 |
+
+**流水线层**：`trigger_watcher.sh` Step 4.5 双门控：
+```
+Steps 1-4 完成 → layout_check（排版）→ data_audit（事实）→ Step 5 发布
+              └─ 任一非 0 → trigger.status = rejected_layout / rejected_data_audit，不发 IM，不落盘
+```
+
+**选题层**：topic-scout 生成选题时必须走 `references/data-verification.md` v10.0 一遍，禁止引用未核验的"据研究"型陈述进选题卡。
+
+### 2. S 级种子选题库（海斌原文落地）
+
+路径：`references/external-articles/mp.weixin.qq.com/landmark-articles-2026-04-22-bluebook-nsk/`
+
+- `bluebook-nsk-national-guidance.md` — 海斌 2025-06-26 原文
+- `bluebook-nsk-national-guidance-captured.html` — 原始 HTML 存证
+- `SEED-TOPICS.md` — 拆解 13 条政策权威选题 + 10 条一级权威事实 + 交叉验证配对表 + 5 条禁止混搭红线
+
+**硬约束**：topic-scout 每天选题前优先扫该 `SEED-TOPICS.md`，S 级选题池里这 13 条拥有**绝对优先权**，直到蓝皮书相关角度用完再开新题。
+
+**独家权威事实白名单**（可直接引用无需再做交叉验证）：
+- 蓝皮书全称、主编单位（健康中国研究中心·中关村新智源）、出版社、2024 年
+- 专家指引附录四大机制（溶栓/降粘聚/抑血小板/延动脉硬化）
+- 4000-8000 FU/日 · 餐后或睡前 · 长期服用
+- 适用人群 5 类、日生研参编身份、1998 年行业首家、30+ 项临床试验
+
+### 3. Windows 选题引擎修复（I 组全 6 条）
+
+- **I-1** `daily-topics.ps1` L136 修：`(Get-Content '…')` 字面量传参 → `$prompt | & claude -p` 走 stdin
+- **I-2** prompt 加"若不足 10 条必须用同维度派生不同角度变体补齐，不许 <10"
+- **I-3** 回补"10 选题覆盖 ≥5 维度 M1-M8" + "主张/疑问/数字/场景/对比 5 类句式至少各 1"
+- **I-4** 路径 POSIX 化：`$SKILL_DIR_POSIX = $SKILL_DIR.Replace('\','/')` 再注入 prompt
+- **I-5** JSON 解析分级 exit code（2=解析失败、3=<10 条）+ 追加强化提示重试
+- **I-6** 最多 3 次尝试（1 正式 + 2 重试），仍不足则 Die，彻底告别"Windows 跑出 6 条就上线"
+
+### 4. 飞书消息推送硬编码
+
+第十三次沟通原话："生成成功是直接放到他的云盘，但是没有直接通过飞书消息发给他。" 把"将文章发送至飞书"的 1-2-3 步硬编码写进 `nsksd_publish.py` + `trigger_watcher.sh`，不再依赖模型自主推断。
+
+### 5. 依赖文件总览
+
+| 新增/修改 | 文件 | 说明 |
+|----------|------|------|
+| ➕ | `scripts/data_audit.py` | 六道数据事实扫描硬门控 |
+| ➕ | `references/external-articles/mp.weixin.qq.com/landmark-articles-2026-04-22-bluebook-nsk/` | 海斌原文 + HTML 存证 + SEED-TOPICS 拆解 |
+| ✏️ | `scripts/interactive/trigger_watcher.sh` | 发布前 Step 4.5 双门控（layout + data） |
+| ✏️ | `scripts/daily-topics.ps1` | I-1~I-6 Windows 选题引擎修复 |
+| ✏️ | `references/data-verification.md` | v9.3 → v10.0，选题阶段核查 + 蓝皮书白名单 |
+
+---
+
+## V9.9 核心升级（上一版 · 2026-04-22 · 文章排版硬约束）
 
 客户反馈："现在写出来的文章，大段大段文字，缺小标题，可读性差。"根因是 V9.4 的写作规范明确写了"不用 # 标题堆砌结构"，把小标题这条路堵死了。V9.9 把规则反过来：
 

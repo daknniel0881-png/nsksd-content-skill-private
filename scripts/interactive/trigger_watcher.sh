@@ -115,6 +115,43 @@ EOF
       fi
     fi
 
+    # V10.0 发布前双门控（排版 + 数据事实）
+    log "Step 4.5: 发布前门控（layout_check + data_audit）"
+    local STEP3_MD="$SKILL_DIR/artifacts/${session_id}/step3-article.md"
+    if [ -f "$STEP3_MD" ]; then
+      log "  → layout_check.py"
+      if ! python3 "$SKILL_DIR/scripts/layout_check.py" "$STEP3_MD" >> "$work_log" 2>&1; then
+        log "❌ 排版硬门控未通过（段落≤100字 / 3-6小标题），退回重写，不发布"
+        python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_layout'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+        mv "$trigger_file" "$DONE_DIR/"
+        return
+      fi
+      log "  → data_audit.py"
+      if ! python3 "$SKILL_DIR/scripts/data_audit.py" "$STEP3_MD" >> "$work_log" 2>&1; then
+        log "❌ 数据事实硬门控未通过（数字缺源/医广红线/单位错/孤证），退回重写，不发布"
+        python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_data_audit'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+        mv "$trigger_file" "$DONE_DIR/"
+        return
+      fi
+      log "  ✅ 双门控通过"
+    else
+      log "  ⚠️ 未找到 $STEP3_MD，跳过双门控（Claude 流水线可能把产物放别处）"
+    fi
+
     log "Step 5: 发布（nsksd_publish 双推：飞书云文档 + 公众号草稿）"
     python3 "$SKILL_DIR/scripts/nsksd_publish.py" \
       --dir "$ARTICLE_DIR" \

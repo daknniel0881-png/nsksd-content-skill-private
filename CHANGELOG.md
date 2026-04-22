@@ -1,5 +1,59 @@
 # 更新日志
 
+## [V10.0] - 2026-04-22 · 数据事实硬门控 + S 级种子选题库 + Windows 选题引擎修复
+
+### 背景
+
+第十二次 / 十三次客户沟通同时暴露三个病根：
+1. 模型引用数据时会偷懒瞎编"据研究/有数据显示"，**核查机制只存在于 playbook，没落到代码门控**
+2. Windows 定时任务跑出 <10 条选题 + 角度单一 + 飞书消息没推送
+3. 客户团队已有一篇蓝皮书级政策权威文章（海斌 2025-06-26 原文），但 skill 不知道它的存在，每天从零选题
+
+### 新增
+
+- **`scripts/data_audit.py`**：数据事实硬门控，六道扫描（数字断言缺源 / 医广绝对化 / 日本禁词 / 捏造信号短语 / FU 单位错写 / 孤证健康陈述），退码非 0 阻塞发布
+- **`references/external-articles/mp.weixin.qq.com/landmark-articles-2026-04-22-bluebook-nsk/`**：S 级种子选题库
+  - `bluebook-nsk-national-guidance.md` 海斌原文
+  - `bluebook-nsk-national-guidance-captured.html` HTML 存证
+  - `SEED-TOPICS.md` 拆解 13 条政策权威选题 + 10 条一级权威事实 + 交叉验证配对表 + 5 条禁止混搭红线
+
+### 修改
+
+- **`scripts/interactive/trigger_watcher.sh`**：发布前 Step 4.5 双门控（layout_check → data_audit），任一失败 trigger.status 打 `rejected_layout` / `rejected_data_audit`，不发 IM、不落盘
+- **`scripts/daily-topics.ps1`**（I 组 6 条 Windows 修复）：
+  - I-1 修 L136 字面量传参 → `$prompt | & claude -p` 走 stdin
+  - I-2 prompt 加"不足 10 条必须派生同维度变体补齐"
+  - I-3 回补"≥5 维度 + 5 类句式（主张/疑问/数字/场景/对比）各 1"
+  - I-4 路径 POSIX 化（`$SKILL_DIR_POSIX`）再注入 prompt
+  - I-5 JSON 解析分级 exit code（2=解析失败、3=<10 条）
+  - I-6 最多 3 次尝试（1 正式 + 2 重试），仍不足则 Die
+- **`references/data-verification.md`** v9.3 → v10.0：
+  - 新增"选题阶段核查"章（topic-scout 读规则再选题，禁止幻觉信号短语进选题卡）
+  - 新增"蓝皮书权威事实白名单"10 条（免交叉验证，只需标注蓝皮书一次）
+  - 新增"数据事实硬门控"章说明 data_audit.py 六道扫描
+- **`SKILL.md` frontmatter**：V9.9 → V10.0，description 扩写 5 点升级
+
+### 测试
+
+```bash
+# 坏样本（12 项违规）
+python3 scripts/data_audit.py /tmp/test-audit-bad.md
+# → 退码 1，打印 12 条命中
+
+# 好样本（2 条带源，1 条 authority_level=1）
+python3 scripts/data_audit.py /tmp/test-audit-good.md
+# → 退码 0
+```
+
+### 客户可见变化
+
+- 文章里出现"治疗/治愈/根治/4000 mg/日本进口/据研究"等红线 → 发布流水线自动拦截，不再需要人工审
+- 选题卡不再出现无出处的"据研究降低 XX%"幻觉数字
+- 每日 10 点 Windows 选题保底 10 条、5 维度、5 类句式、飞书消息硬推送
+- 蓝皮书事实进入白名单，所有作者引用时标注统一，不再各写各的
+
+---
+
 ## [V9.9] - 2026-04-22 · 文章排版硬约束
 
 ### 背景

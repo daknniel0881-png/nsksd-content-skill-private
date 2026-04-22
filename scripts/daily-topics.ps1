@@ -107,55 +107,102 @@ function Generate-Topics {
     $claudeBin = Get-Command claude -ErrorAction SilentlyContinue
     if (-not $claudeBin) { Die 'claude CLI 未找到（请安装 Claude Code）' }
 
-    # 用 heredoc 风格构造 prompt，写到临时文件再喂给 claude
+    # V10.0 I-4: Windows 路径正斜杠化，避免 claude 解析 `\` 出错
+    $SKILL_DIR_POSIX = $SKILL_DIR.Replace('\','/')
+
+    # 用 heredoc 构造 prompt，写到临时文件再喂给 claude
     $promptPath = Join-Path $TMP "nsksd-prompt-$TODAY.txt"
     $prompt = @"
-请阅读 $SKILL_DIR/SKILL.md 了解 V9.7 工作流。
+请阅读 $SKILL_DIR_POSIX/SKILL.md 了解 V10.0 工作流。
 【必读三件套】
-- $SKILL_DIR/references/topic-selection-rules.md（八维坐标系 + 三层去重 + 反面示例）
-- $SKILL_DIR/references/title-playbook.md（45 标题公式 + 张力 6 维 + 三库禁用词 + 医广红线）
-- $SKILL_DIR/references/topic-library/README.md（分块资讯池 + 8 招商角度硬约束）
+- $SKILL_DIR_POSIX/references/topic-selection-rules.md（八维坐标系 + 三层去重 + 反面示例）
+- $SKILL_DIR_POSIX/references/title-playbook.md（45 标题公式 + 张力 6 维 + 三库禁用词 + 医广红线）
+- $SKILL_DIR_POSIX/references/topic-library/README.md（分块资讯池 + 8 招商角度硬约束）
 
 执行【Step 1 · 选题生成】:
-1. 读当日热点 $SKILL_DIR/references/topic-library/hotspots/$TODAY.json（无则跳过）
-2. 查 $SKILL_DIR/logs/topic-history.jsonl 做 30 天三维指纹去重（文件不存在就当空集合）
-3. 生成 >= 10 个选题（S/A/B 分层），至少 3 个结合当日热点
+1. 读当日热点 $SKILL_DIR_POSIX/references/topic-library/hotspots/$TODAY.json（无则跳过）
+2. 查 $SKILL_DIR_POSIX/logs/topic-history.jsonl 做 30 天三维指纹去重（文件不存在就当空集合）
+3. 生成**至少 10 个选题**（S/A/B 分层），至少 3 个结合当日热点
 
-【V9.7 硬约束】M7 ≤1/日；M6+M7 ≤2/日；C 端 ≥6/10；主人群（门店/美容院/养生馆/分销商）≤1/日
-【V9.7 张力】每条标题至少命中 3 项（对比反差/具体数字/悬念好奇/冲突争议/时间承诺/结果承诺）
-【禁用】医广红线（治疗/根治/当天见效）+ 曲率 AI 味词（赋能/链路/飞轮/颠覆）+ 破折号 + 「不是…而是…」句式
-【严禁】捏造数据 / 捏造 URL / 日本表述
+【V10.0 硬门控 · 数量】
+- 必须输出 **≥ 10 条** options，不足则用同维度派生不同角度的变体补齐（变体 != 换词，必须换角度/数据点/人群）
+- 若选题池枯竭，用"角度×人群×时令"笛卡尔积兜底生成，严禁输出 < 10 条
 
-【输出格式】文末用 ``````json 代码块输出 JSON 数组，字段:
-  - value: 选题编号 (topic_1, topic_2, ...)
+【V10.0 硬门控 · 维度多样性】
+- 10 选题必须覆盖 **≥ 5 个不同维度**（M1-M8 中任选 5 个以上）
+- M7 招商场景 ≤ 1/日（硬线）；M6 产品科普 ≤ 1/日；M6+M7 合计 ≤ 2/日
+- C 端（M1+M3+M4+M8）≥ 6/10；主人群（门店/美容院/养生馆/分销商）≤ 1/日
+
+【V10.0 硬门控 · 角度多样性】
+标题句式至少各出现 1 条，共 5 类：
+  1. 主张型（"XXX 要这样做"/"XXX 应该 YYY"）
+  2. 疑问型（"XXX 为什么 YYY？"/"XXX 到底 YYY 吗？"）
+  3. 数字型（"3 个指标"/"80% 的人"/"7 天见效"）
+  4. 场景型（"早上起床 XXX"/"饭后 30 分钟 YYY"）
+  5. 对比型（"A 和 B 的区别"/"错误 vs 正确"）
+
+【V10.0 张力】每条标题至少命中 3 项：对比反差/具体数字/悬念好奇/冲突争议/时间承诺/结果承诺
+【禁用】医广红线（治疗/根治/当天见效）+ 曲率 AI 味词（赋能/链路/飞轮/颠覆）+ 破折号 ——  + 「不是…而是…」句式
+【严禁】捏造数据 / 捏造 URL / 日本表述（日本进口、日式工艺）
+
+【输出格式 · 严格】
+文末必须用 ``````json 代码块（三反引号）输出 JSON 数组，字段:
+  - value: 选题编号 (topic_1, topic_2, ... 按 1-10 原序)
   - text:  完整 Markdown 文本（例 "🏆 选题1 · 标题（M4/F21，90分）"）
-至少 10 个 options。
+必须 **≥ 10 个 options**。不许少于 10，少了重来。
 "@
     [System.IO.File]::WriteAllText($promptPath, $prompt, [System.Text.Encoding]::UTF8)
 
-    $null = & claude -p "(Get-Content '$promptPath' -Raw -Encoding UTF8)" 2>>$LOG_FILE | Out-File -Encoding UTF8 -FilePath $TOPICS_MD
-    if (-not (Test-Path $TOPICS_MD) -or (Get-Item $TOPICS_MD).Length -eq 0) {
-        Die '选题生成失败（TOPICS_MD 为空）'
-    }
+    # V10.0 I-1: 修复调用方式 —— 用 --  + stdin 传 prompt，避免命令行长度/引号转义问题
+    # V10.0 I-5/I-6: 失败/不足 10 条时最多重试 2 次，每次追加强化提示
+    $maxAttempts = 3
+    $attempt = 0
+    $success = $false
+    while ($attempt -lt $maxAttempts -and -not $success) {
+        $attempt++
+        Log "  调用 claude -p（第 $attempt/$maxAttempts 次）..."
 
-    # 提取 JSON
-    $py = @"
+        $currentPrompt = Get-Content $promptPath -Raw -Encoding UTF8
+        if ($attempt -gt 1) {
+            $currentPrompt += "`n`n【重试提醒】上一轮输出不合格（少于 10 条或 JSON 解析失败），本轮必须严格输出 ≥10 条 options，必须用 ``````json 代码块包裹。"
+        }
+
+        # 关键修复：用管道把 prompt 从 stdin 送给 claude，而不是作为参数（PS 会字面量化）
+        $currentPrompt | & claude -p 2>>$LOG_FILE | Out-File -Encoding UTF8 -FilePath $TOPICS_MD
+
+        if (-not (Test-Path $TOPICS_MD) -or (Get-Item $TOPICS_MD).Length -eq 0) {
+            Log "  ⚠️  第 $attempt 次生成为空，重试..."
+            continue
+        }
+
+        # 解析 JSON
+        $py = @"
 import re, json, sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 content = open(r'$TOPICS_MD', encoding='utf-8').read()
 m = re.search(r'``````json\s*\n(.*?)\n``````', content, re.DOTALL)
 if not m:
-    print('ERROR: 无法从选题文件提取 json 代码块', file=sys.stderr); sys.exit(1)
-data = json.loads(m.group(1))
+    print('ERROR: 无法从选题文件提取 json 代码块', file=sys.stderr); sys.exit(2)
+try:
+    data = json.loads(m.group(1))
+except Exception as e:
+    print(f'ERROR: JSON 解析失败: {e}', file=sys.stderr); sys.exit(2)
 if len(data) < 10:
-    print(f'ERROR: options 数量 {len(data)} < 10', file=sys.stderr); sys.exit(1)
+    print(f'ERROR: options 数量 {len(data)} < 10', file=sys.stderr); sys.exit(3)
 json.dump(data, open(r'$TOPICS_JSON', 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-print(f'✅ 已提取 {len(data)} 个选题')
+print(f'OK: 已提取 {len(data)} 个选题')
 "@
-    $pyPath = Join-Path $TMP "nsksd-extract-$TODAY.py"
-    [System.IO.File]::WriteAllText($pyPath, $py, [System.Text.Encoding]::UTF8)
-    python $pyPath
-    if ($LASTEXITCODE -ne 0) { Die '选题 JSON 解析失败' }
+        $pyPath = Join-Path $TMP "nsksd-extract-$TODAY.py"
+        [System.IO.File]::WriteAllText($pyPath, $py, [System.Text.Encoding]::UTF8)
+        python $pyPath
+        if ($LASTEXITCODE -eq 0) {
+            $success = $true
+        } else {
+            Log "  ⚠️  第 $attempt 次提取失败（exit=$LASTEXITCODE），重试..."
+        }
+    }
+
+    if (-not $success) { Die "选题生成连续 $maxAttempts 次失败（≥10 条硬门控未通过）" }
 
     Log "  ✅ 选题文件: $TOPICS_JSON"
 }

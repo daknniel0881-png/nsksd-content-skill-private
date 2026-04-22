@@ -1,6 +1,6 @@
 # nsksd-content-skill
 
-> 日生研NSKSD纳豆激酶 · 自媒体内容工厂 Skill（V9.9）
+> 日生研NSKSD纳豆激酶 · 自媒体内容工厂 Skill（最新版本见 [Releases](https://github.com/daknniel0881-png/nsksd-content-skill-private/releases)）
 > 客户专用版 · 零硬编码 · 独立部署 · Mac/Windows 双端适配 · 飞书云文档保底
 
 **这是客户使用的 Skill，不依赖任何个人写作风格或个人凭证。**
@@ -29,25 +29,12 @@ guard.py 硬门控 + 30 天滚动去重 + 合规硬扫
 
 ---
 
-## V9.9 重要变更
+## 版本历史
 
-- **排版硬约束**：段落 ≤100 字 + 必须 3-6 个 `##` 小标题，`scripts/layout_check.py` 退码非 0 阻塞发布
-- **写作风格反陷阱**：之前规则禁用 # 小标题导致大段堆字，V9.9 反过来强制分区分块
-- **article-writer 自查升级**：3 轮 → 5 轮，第 5 轮专查段落字数和小标题数量
+所有版本更新日志统一放在 GitHub Releases：
+👉 <https://github.com/daknniel0881-png/nsksd-content-skill-private/releases>
 
-## V9.8 重要变更（Windows 适配大修）
-
-- 修 14 条客户端测试踩坑（UTF-8 乱码 / open_id 缺失 / venv 自愈 / 凭证自动注入等）
-- 新增 `scripts/daily-topics.ps1` + `scripts/setup_cli.ps1`，补齐 Windows 定时入口
-- 新增 `docs/playbooks/windows-troubleshooting.md`，9 节排障说明书
-
-## V9.4 重要变更
-
-- **彻底与 wechat-autopublish 解耦**：独立本地发布流水线，不依赖任何外部 skill
-- **nsksd-writing-style 独立写作规则**：大白话+专业，不带任何个人签名句式
-- **docs/playbooks/ 做事说明书矩阵**：7 个 playbook，遇到问题翻这里
-- **CLI 引导配置**：`python3 scripts/setup_cli.py` 交互式填凭证，chmod 600
-- **公众号凭证缺失自动保底**：飞书云文档兜底，内容不丢
+（README 不再追加版本日志，避免主界面变成编年史）
 
 ---
 

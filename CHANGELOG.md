@@ -1,5 +1,52 @@
 # 更新日志
 
+## [V10.6.1] - 2026-04-22 · 公众号摘要硬约束 + 知识库瘦身
+
+### 背景
+
+客户反馈推送的公众号草稿摘要"看起来像把原文复制粘贴过来"。根因排查发现：`scripts/lib/wechat_publish_core.py::push_draft` 的 `digest` 参数当前是可选的，两处调用方（`nsksd_publish.py` line 77 + `scripts/format/publish.py` line 437）都没传，**微信侧自动截取正文前 54 字作为摘要**——开头钩子被拦腰截断，必然破句、必然像复制粘贴。
+
+同时清理 `references/research-papers/2026-04-16-pan-vascular-disease/figures/` 下 96 张 PPT 页面截图（85 MB）：所有数据/结论已在 V10.6 抽取到 `full-text.md`/`key-data.md`，零脚本引用 figures，属于派生物。
+
+### 变更
+
+**Task A · 公众号摘要硬约束（V10.6.1 主线）**
+
+- `scripts/lib/wechat_publish_core.py::push_draft`：
+  - `digest` 参数从"可选"升为"硬约束"，缺失或仅空白即 `raise WeChatPublishError`（fail-closed，不再走微信自动截首段的兜底）
+  - 长度 > 54 字自动截断为 53 字 + "…"，stderr 输出 `[wechat-digest] WARN` 提示
+  - 模块顶层新增 `import sys`（之前依赖函数内 `_sys` 局部 import，不可在 push_draft 复用）
+- `scripts/nsksd_publish.py`：
+  - 新增 `load_digest(article_dir)` 函数，按顺序查找 `step3-digest.txt`/`digest.txt`/父级 `step3-digest.txt`，缺失即抛
+  - `publish_to_wechat` 入口处先 `load_digest` 再走 token/封面/草稿全流程，缺摘要直接拦截
+  - `push_draft(...)` 调用追加 `digest=digest` 参数
+- `agents/article-writer.md` 步骤 F：
+  - 落盘清单新增 `step3-digest.txt`
+  - 新增"步骤 F.1 公众号摘要 step3-digest.txt"小节，含 5 条铁律（≤54字/一句话/结论先行/禁照抄正文首段/不带本文今天等指示词）+ 3 个好坏对照例 + 写完三步自检
+- 测试验证：缺 digest 拦截 ✅、空白 digest 拦截 ✅、80 字超长截断 + WARN ✅
+
+**Task B · 蓝皮书 figures 瘦身**
+
+- 删除 `references/research-papers/2026-04-16-pan-vascular-disease/figures/`（96 张 PNG，85 MB）
+- `README.md`：文件清单条目改为说明 figures 已删除 + 一行 pdftoppm 重生成命令；待办事项打勾
+- 风险可控：`original.pdf`（22 MB）保留，全部数据已抽取到 `full-text.md` + `key-data.md`，零脚本引用 figures（grep 验证）
+
+### 决策拍板
+
+| 卡点 | 选择 | 理由 |
+|------|------|------|
+| digest 缺失处置 | **fail-closed 抛异常** | 走微信自动截首段是 V10.6.1 的根因，不能再留兜底口子 |
+| 长度超限处置 | 截断 + warn（不抛） | 写作端已经按 ≤54 强约束，发布端再截只是兜底，不阻断 |
+| step3-digest.txt 落盘位置 | 与 step3-article.md 同目录（artifacts/<SID>/） | 最大复用现有约定，nsksd_publish 找文件最直观 |
+| figures 是否保留 | 删 | PDF 原文还在，重生成只需一条命令，体积 85 MB 不值 |
+
+### 遗留
+
+- `scripts/format/publish.py::push_draft` 是独立副本（旧代码路径），本次只改了 `scripts/lib/wechat_publish_core.py` 主路径——后续如有重构应合并两处
+- 现有 artifacts/ 下已经生成的老文章目录没有 `step3-digest.txt`，重新发布旧稿会被拦截，需手动补一个摘要文件
+
+---
+
 ## [V10.6] - 2026-04-22 · 竞品数据污染紧急清除 + 数据黑名单门控
 
 ### 背景

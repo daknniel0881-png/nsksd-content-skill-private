@@ -10,11 +10,12 @@
 
 | 文件 | 说明 |
 |------|------|
-| `original.pdf` | 原始PDF（[待复制，见下方说明]） |
+| `original.pdf` | 原始PDF（22 MB，82 页讲座） |
 | `full-text.md` | 全文结构化提取（8章，含关键术语表） |
 | `key-data.md` | 关键数据库（流行病/分子特性/临床/炎症指标/数字锚点） |
 | `topic-mining.md` | 选题挖掘（25条，M1-M6+S/A/B评级+5候选标题/条） |
-| `figures/` | 幻灯片图片导出目录（[待执行，见下方说明]） |
+
+> **figures/ 已于 V10.6.1 删除**：96 张 PPT 页面截图（85 MB）属派生物，所有数据/结论已抽取到 `full-text.md` + `key-data.md`，无任何脚本/agent 引用 figures。需要视觉素材时一行命令重生成：`pdftoppm -png original.pdf figures/page`。
 
 ---
 
@@ -29,14 +30,7 @@
 
 ## 待处理事项
 
-**[待执行]** `original.pdf`：需要 Bash 权限执行 `cp /tmp/pan-vascular.pdf ./original.pdf`
-
-**[待执行]** `figures/` 图片导出：需要 Bash 权限执行：
-```bash
-pdftoppm -png /tmp/pan-vascular.pdf \
-  /Users/suze/.claude/skills/nsksd-content/references/research-papers/2026-04-16-pan-vascular-disease/figures/fig
-```
-导出后每张图片需手动创建 `fig-NN.md` 描述文件，格式见 topic-mining.md 中的图片角度分析。
+**[V10.6.1 已完成]** ~~`original.pdf` 复制~~ + ~~`figures/` 导出~~ → 信息提取已落 `full-text.md`/`key-data.md`，figures 不再保留。
 
 **[待确认]** T23 选题（纳豆食物vs补剂）中"每天需要多少克纳豆才能达到有效剂量"——PDF未给出精确数字，发文前需补查文献。
 

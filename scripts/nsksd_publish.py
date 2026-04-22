@@ -59,8 +59,36 @@ def load_article(article_dir: Path) -> tuple[str, str]:
     return html, title
 
 
+def load_digest(article_dir: Path) -> str:
+    """V10.6.1：读 step3-digest.txt（一句话总结，≤54字）。
+
+    查找顺序：
+      1. <article_dir>/step3-digest.txt
+      2. <article_dir>/digest.txt
+      3. <article_dir>/../step3-digest.txt（artifacts/<SID>/ 同级查找）
+
+    缺失即 fail-closed（push_draft 会再次拒绝），禁止走微信自动截首段。
+    """
+    candidates = [
+        article_dir / "step3-digest.txt",
+        article_dir / "digest.txt",
+        article_dir.parent / "step3-digest.txt",
+    ]
+    for path in candidates:
+        if path.exists():
+            content = path.read_text(encoding="utf-8").strip()
+            if content:
+                return content
+    raise WeChatPublishError(
+        "step3-digest.txt 缺失（V10.6.1 硬约束）：article-writer 必须在落盘时产出"
+        "一句话摘要文件（≤54字）。查找路径：" + ", ".join(str(c) for c in candidates)
+    )
+
+
 def publish_to_wechat(article_dir: Path, html: str, title: str, author: str) -> str:
     """主路径——成功返回 media_id，失败抛 WeChatPublishError"""
+    digest = load_digest(article_dir)  # V10.6.1：发布前必读，缺失即拦截
+
     token = get_access_token()
     html, _, failed = replace_all_images(html, article_dir, token)
     if failed > 0:
@@ -74,7 +102,7 @@ def publish_to_wechat(article_dir: Path, html: str, title: str, author: str) -> 
     if not thumb_media_id:
         raise WeChatPublishError("封面上传失败")
 
-    media_id = push_draft(token, title, html, thumb_media_id, author)
+    media_id = push_draft(token, title, html, thumb_media_id, author, digest=digest)
     if not media_id:
         raise WeChatPublishError("草稿推送返回为空")
     return media_id

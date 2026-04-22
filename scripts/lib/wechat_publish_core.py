@@ -22,6 +22,7 @@ import html as html_module
 import json
 import os
 import re
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -220,6 +221,27 @@ def replace_all_images(html: str, article_dir: Path, token: str) -> Tuple[str, i
 
 def push_draft(token: str, title: str, content: str,
                thumb_media_id: str, author: str = "", digest: str = "") -> Optional[str]:
+    """推送草稿到公众号。
+
+    digest（V10.6.1 硬约束）：
+    - 必须传，且非空白；空字符串/None 触发 ValueError（fail-closed，不再走微信自动截首段）
+    - 长度 ≤ 54 字（微信硬上限），超出截断为 53 字 + "…" 并 stderr warn
+    - 调用方有责任产出"一句话总结"形式的 digest，不要把正文头几句直接塞进来
+    """
+    if not digest or not digest.strip():
+        raise WeChatPublishError(
+            "digest 缺失（V10.6.1 硬约束）：必须传一句话摘要（≤54字），"
+            "禁止使用微信自动截首段的兜底——那会导致摘要看起来像复制粘贴"
+        )
+    digest = digest.strip()
+    if len(digest) > 54:
+        truncated = digest[:53] + "…"
+        print(
+            f"[wechat-digest] WARN digest 超长 {len(digest)} 字 → 截断为 54 字: {truncated!r}",
+            file=sys.stderr,
+        )
+        digest = truncated
+
     url = f"{WECHAT_API}/cgi-bin/draft/add?access_token={token}"
     article = {
         "title": title,
@@ -229,9 +251,8 @@ def push_draft(token: str, title: str, content: str,
         "thumb_media_id": thumb_media_id,
         "need_open_comment": 0,
         "only_fans_can_comment": 0,
+        "digest": digest,
     }
-    if digest:
-        article["digest"] = digest
     body = json.dumps({"articles": [article]}, ensure_ascii=False).encode("utf-8")
     resp = requests.post(url, data=body,
                          headers={"Content-Type": "application/json"}, timeout=30)

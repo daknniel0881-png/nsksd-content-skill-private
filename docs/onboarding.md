@@ -113,25 +113,22 @@
 
 Open ID 是机器人给你发消息时用来定位"发给谁"的标识。
 
-**方法一：让机器人自己告诉你**
-1. 在飞书中搜索你刚创建的机器人，发一条消息（如"你好"）
-2. 查看监听服务的日志，会输出发送者的 `open_id`
-
-**方法二：通过API查询**
+**方法一：用 lark-cli 查自己（推荐）**
 ```bash
-# 替换为你的 App ID 和 App Secret
-curl -X POST 'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal' \
-  -H 'Content-Type: application/json' \
-  -d '{"app_id":"cli_a5xxxx","app_secret":"xxxxx"}'
-
-# 用返回的 tenant_access_token 查询用户
-curl 'https://open.feishu.cn/open-apis/contact/v3/users/find?user_id_type=open_id&mobile=+86你的手机号' \
-  -H 'Authorization: Bearer t-xxxxx'
+lark-cli contact +get-user --as user --jq '.data.user.open_id'
+# 输出示例：ou_01317d9f859b2aeb7e26fe44377d9975
 ```
 
-**方法三：飞书管理后台**
-1. 访问 https://admin.feishu.cn
-2. 找到目标用户，查看详情中的 Open ID
+**方法二：用 lark-cli 查别人**
+```bash
+# 按手机号查（含国际区号）
+lark-cli contact +search-user --query "+8613812345678" --as user --jq '.data.users[0].open_id'
+
+# 按姓名查
+lark-cli contact +search-user --query "张三" --as user --jq '.data.users[0].open_id'
+```
+
+> 未登录 user 身份时先运行：`lark-cli auth login --as user`
 
 把获取到的 Open ID 记下来（格式类似 `ou_xxxxxxxxxxxxxxxx`）。
 

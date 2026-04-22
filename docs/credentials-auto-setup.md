@@ -89,18 +89,14 @@ lark-cli config show 2>&1 | grep -oE 'ou_[a-f0-9]+'
 ```
 
 ```bash
-# 方法二：如果 users 字段为空，通过搜索用户获取
-# 需要用户告知姓名或手机号
-lark-cli contact +search-user --query "用户姓名"
-# 从返回的 JSON 中提取 open_id
+# 方法二：直接查当前 user 身份（最简，零参数）
+lark-cli contact +get-user --as user --jq '.data.user.open_id'
 ```
 
 ```bash
-# 方法三：通过 API 用手机号查询
-lark-cli api GET /open-apis/contact/v3/users/batch_get_id \
-  --data '{"mobiles":["手机号"]}' \
-  --params '{"user_id_type":"open_id"}' \
-  --as bot
+# 方法三：按姓名/手机号搜索其他用户
+lark-cli contact +search-user --query "+8613812345678" --as user --jq '.data.users[0].open_id'
+# query 可以是手机号（含国际区号）、邮箱或姓名
 ```
 
 > **注意**：不同飞书应用下，同一用户的 Open ID 不同。必须使用当前 lark-cli profile 对应的应用来获取。

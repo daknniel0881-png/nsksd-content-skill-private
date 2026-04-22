@@ -118,6 +118,19 @@ EOF
     # V10.0 发布前双门控（排版 + 数据事实）
     log "Step 4.5: 发布前门控（layout_check + data_audit）"
     local STEP3_MD="$SKILL_DIR/artifacts/${session_id}/step3-article.md"
+    if [ ! -f "$STEP3_MD" ]; then
+      log "❌ step3-article.md 缺失，拒绝发布（rejected_missing_article）"
+      python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_missing_article'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+      mv "$trigger_file" "$DONE_DIR/"
+      return
+    fi
     if [ -f "$STEP3_MD" ]; then
       log "  → layout_check.py"
       if ! python3 "$SKILL_DIR/scripts/layout_check.py" "$STEP3_MD" >> "$work_log" 2>&1; then
@@ -162,10 +175,37 @@ json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
         mv "$trigger_file" "$DONE_DIR/"
         return
       fi
-      log "  ✅ 三门控通过（排版 + 数据 + 引用）"
+      # V10.4 第五道硬门控：事实性挑刺扫描
+      log "  → fact_auditor.py (V10.4)"
+      if ! python3 "$SKILL_DIR/scripts/fact_auditor.py" "$STEP3_MD" >> "$work_log" 2>&1; then
+        log "❌ 事实性硬门控未通过（孤证数字/懒惰话术/非白名单源/机构无DOI），退回重写，不发布"
+        python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_fact_audit'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+        mv "$trigger_file" "$DONE_DIR/"
+        return
+      fi
 
       # V10.1 第三道硬门控：图片尺寸 + 数量 + 中文优先
       local STEP4_IMG_DIR="$SKILL_DIR/artifacts/${session_id}/step4-images"
+      if [ ! -d "$STEP4_IMG_DIR" ]; then
+        log "❌ step4-images 目录缺失，拒绝发布（rejected_missing_images）"
+        python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_missing_images'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+        mv "$trigger_file" "$DONE_DIR/"
+        return
+      fi
       if [ -d "$STEP4_IMG_DIR" ]; then
         log "  → image_size_check.py (V10.1)"
         if ! python3 "$SKILL_DIR/scripts/image_size_check.py" "$STEP4_IMG_DIR" >> "$work_log" 2>&1; then
@@ -181,9 +221,7 @@ json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
           mv "$trigger_file" "$DONE_DIR/"
           return
         fi
-        log "  ✅ 三门控通过"
-      else
-        log "  ⚠️ 未找到 $STEP4_IMG_DIR，跳过图片硬门控"
+        log "  ✅ 五门控通过（排版 + 数据 + 引用 + 事实 + 图片）"
       fi
     else
       log "  ⚠️ 未找到 $STEP3_MD，跳过双门控（Claude 流水线可能把产物放别处）"

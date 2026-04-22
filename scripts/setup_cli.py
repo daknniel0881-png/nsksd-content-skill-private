@@ -17,6 +17,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# 将 scripts/ 加入路径，确保 lib.openid_resolver 可导入
+sys.path.insert(0, str(Path(__file__).parent))
+from lib.openid_resolver import get_self_open_id, list_my_chats
+
 CONFIG_DIR = Path.home() / ".nsksd-content"
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
@@ -140,8 +144,45 @@ def run_interactive_setup() -> dict:
     print("   chat_id 查询：应用管理 → 权限配置 → 加 im:chat 权限，调 /open-apis/im/v1/chats\n")
     config["lark"]["app_id"] = ask("飞书 app_id（cli_xxx 格式）", "REPLACE_ME")
     config["lark"]["app_secret"] = ask("飞书 app_secret", "REPLACE_ME")
-    config["lark"]["target_open_id"] = ask("目标 open_id（接收通知的用户，oc_xxx 格式）", "REPLACE_ME")
-    config["lark"]["customer_open_chat_id"] = ask("客户群 chat_id（oc_xxx 格式）", "REPLACE_ME")
+
+    # 自动查询 target_open_id
+    auto_open_id = get_self_open_id()
+    if auto_open_id:
+        config["lark"]["target_open_id"] = auto_open_id
+        print(f"[auto] target_open_id = {auto_open_id}")
+    else:
+        config["lark"]["target_open_id"] = ask(
+            "目标 open_id（接收通知的用户，ou_xxx 格式）\n"
+            "   提示：也可运行 `lark-cli contact +get-user --as user` 自动查询",
+            "REPLACE_ME",
+        )
+
+    # 自动列出群聊，让用户选序号
+    chats = list_my_chats()
+    if chats:
+        print("\n当前所在群聊：")
+        for i, chat in enumerate(chats):
+            print(f"  [{i}] {chat['name']}  ({chat['chat_id']})")
+        hint = f"输入序号 0-{len(chats) - 1}（直接回车跳过）"
+        try:
+            raw = input(f"选择客户群 {hint}: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            raw = ""
+        if raw.isdigit() and 0 <= int(raw) < len(chats):
+            chosen = chats[int(raw)]
+            config["lark"]["customer_open_chat_id"] = chosen["chat_id"]
+            print(f"[auto] customer_open_chat_id = {chosen['chat_id']}  ({chosen['name']})")
+        else:
+            config["lark"]["customer_open_chat_id"] = ask(
+                "客户群 chat_id（oc_xxx 格式）", "REPLACE_ME"
+            )
+    else:
+        config["lark"]["customer_open_chat_id"] = ask(
+            "客户群 chat_id（oc_xxx 格式）\n"
+            "   提示：也可运行 `lark-cli im chats list --as user` 自动查询",
+            "REPLACE_ME",
+        )
 
     print("\n--- 基础设置 ---")
     theme = ask("默认排版主题", "mint-fresh")

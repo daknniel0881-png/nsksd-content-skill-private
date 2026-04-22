@@ -1,5 +1,87 @@
 # 更新日志
 
+## [V10.4] - 2026-04-22 · OpenID 自动查询 + 白名单源 + fact_auditor 第五道事实硬门控 + 占位符两阶段写作 + 懒惰话术禁用
+
+### 背景
+
+客户跨模型/跨电脑使用时暴露两个硬伤：
+1. **OpenID 要用户手输**：`setup_cli.py` 让用户手填 `target_open_id` 和 `customer_open_chat_id`；`docs` 里教用户"去 api-explorer 反查"/"从监听日志捞" — 全是人工操作。实际 lark-cli 零参数就能查，不该让用户动手
+2. **模型仍会杜撰数据/事实**：V10.3 data_audit 只查数字格式/单位，不查事实真伪。不同模型（Kimi/GLM/MiniMax）为流畅句子会"编个数字"，现有四门控拦不住幻觉
+
+设计思路来源：Opus 4.7 关于"事前不让模型自由发挥"的六层方案——占位符二阶段 + 强制工具调用 + 白名单源 + 无知许可 + 懒惰话术禁用 + 跨段自审。本版一次落地五层（跨模型审稿 V10.5 专项）。
+
+### 新增
+
+- **`scripts/lib/openid_resolver.py`**：封装三个 lark-cli 查询
+  - `get_self_open_id()` 零参数查当前登录用户
+  - `search_user_open_id(query)` 按手机号/邮箱/姓名查别人
+  - `list_my_chats()` 列出所有所在群
+  - 全部带 `timeout=5` + try/except，失败返回 None/空 list 不抛异常
+- **`references/whitelist-sources.md`**：50 条四分组数据源白名单（+专项合规补充）
+  - ①官方/政府 10 条（nhc.gov.cn / chinacdc.cn / samr.gov.cn / nmpa.gov.cn 等）
+  - ②学术/期刊 15 条（PubMed / Cochrane / J Cardiovasc Risk / Nutrients / NEJM / Lancet / 中华心血管病杂志 等）
+  - ③行业权威 15 条（中华医学会心血管病学分会 / 中国营养学会 / 中国心血管健康联盟 / 各类专家共识）
+  - ④品牌自述 10 条（日生研官网 / 蓝皮书参编 / 内部追踪数据）
+  - ⑤合规/法律 7 条（《广告法》第17条 / 《保健食品广告审查暂行规定》等）
+  - 末尾硬规则：非白名单源 → 占位符 `[待核实:xxx]` / 降级写法 / 禁用懒惰话术 13 条
+- **`scripts/fact_auditor.py`**：第五道硬门控，四规则扫描
+  - `orphan_number` — 硬医疗单位（%/mg/FU/IU/μg/mm/ml/kg/g/cm/毫克/毫升 等）无来源 → high severity
+  - `weasel_phrase` — 13 条懒惰话术（研究表明/专家认为/据统计/有报道称/相关数据显示/业内人士/权威人士/国外研究/临床证明/大量研究/科学家发现/医学界公认/业界普遍认为）→ high
+  - `non_whitelist_source` — 引用机构名不在白名单内 → medium（只警告不阻塞）
+  - `institution_without_doi` — "机构 + 年份 + 研究" 三件套同时出现但无 DOI/URL/刊物名 → high
+  - 退码 0=通过 / 1=有 high / 2=文件错
+  - 输出 `step3-fact-audit.json` 结构化报告含 line number + 40 字上下文 + reason
+- **`scripts/sample/step3-facts.example.json`**：给模型看的 step3-facts.json 标注示例（3 条 verified + 1 条 pending + 1 条 failed，展示"无知许可"写法）
+- **`docs/playbooks/openid-auto-query.md`**：lark-cli 查 OpenID 四个场景命令速查 + 失败排查
+
+### 修改
+
+- **`scripts/setup_cli.py`**：
+  - `target_open_id` 先调 `get_self_open_id()` 自动填充，成功打印 `[auto] target_open_id = ou_xxxx`，失败 fallback 到 ask()
+  - `customer_open_chat_id` 调 `list_my_chats()` 展示所有群让用户输**序号**选择，list 为空才 fallback 到 ask()（不再让用户手输 oc_xxx 字符串）
+- **`agents/article-writer.md`**：Step 3 重写为两阶段
+  - Step 3a · 骨架：所有数字/日期/人名/机构/DOI 一律写 `[待填充:该处需要xxx]`，产出 `artifacts/<SID>/step3a-skeleton.md`
+  - Step 3b · 查证填充：三级源顺序查（白名单 → 本地 KB → WebSearch 限定 domain），找不到保留占位符改写为"该数据正在核实中"或整段删；产出 `step3-article.md` + 结构化 `step3-facts.json`（placeholder_id / claim / source_name / source_url / verification_status / confidence）
+- **`references/nsksd-writing-style.md`**：
+  - §5 新增"无知许可"子节 — 明确鼓励写"该数据待核实，暂不披露"或"尚未获得可验证来源"，宁可留空不可编造 + 合法替代模板
+  - §6 禁用词清单新增 13 条懒惰话术
+- **`scripts/interactive/trigger_watcher.sh`**：Step 4.5 四门控升**五门控**
+  - 顺序：layout_check → data_audit → citation_check → **fact_auditor（新）** → image_size_check
+  - fact_auditor 违规状态码 `rejected_fact_audit`
+  - 日志改 `"✅ 五门控通过（排版 + 数据 + 引用 + 事实 + 图片）"`
+  - **fail-closed 修复**：step3-article.md 缺失 → `rejected_missing_article`（原静默 warning 继续）；step4-images 目录缺失 → `rejected_missing_images`（原 warning 继续发无图文章）
+- **三份 docs 替换旧人工查询路径**：`docs/setup.md` / `docs/onboarding.md` / `docs/credentials-auto-setup.md` 全部替换为 lark-cli 命令
+- **`SKILL.md`** frontmatter：V10.3 → V10.4
+
+### 三审阻断项修复（三审 BLOCK_RELEASE 后修）
+
+修完才达到发版标准：
+- `fact_auditor.py::NUMBER_UNIT_PAT` 收缩——剔除「年/岁/天/周/月/小时/分钟/人/例/名/次/倍」等软单位（否则"45 岁以上人群""1062 人"会被误判 high）
+- `YEAR_PAT` 合并入 `INST_YEAR_STUDY_PAT`——单独年份不触发（避免"截至 2024 年"误伤）
+- 白名单机构匹配改单向 `wl in source_text` + `len(wl) >= 2`（避免过宽双向匹配）
+- **weasel 规则二选一**：保留在 fact_auditor，从 data_audit 移除（避免双份实现冲突 + 保持 V10.3 data_audit 行为不变）
+- `fact_auditor::load_whitelist` 文件缺失 → `sys.exit(2)` fatal（不再静默返回空 set）
+- `openid-auto-query.md` 真实 open_id 替换为占位符
+
+### 已知限制（V10.5 专项）
+
+不在 V10.4 范围内但已记录：
+- `trigger_watcher.sh` 多处 `python3 -c "...'$var'..."` 存在 shell injection 隐患（V10.3 遗留）
+- `openid_resolver.py` 未做 PATH 劫持防护 + open_id 格式校验 + mask 输出
+- `fact_auditor.py` 大文件 ReDoS 风险（无 size 上限）
+- `setup_cli.py` 群列表 > 20 未做分页
+- 跨模型挑刺审稿（Opus 4.7 建议的第 5 层）
+
+### 验证
+
+- `fact_auditor.py` 自测：合法文章（含"45岁以上"/"两年追踪"/"1062人"）退码 0 无误伤；违规文章（懒惰话术+机构无DOI+硬剂量无源+非白名单源）退码 1 捕获 4 条
+- `data_audit.py` 回归：V10.3 合法文章（不含"研究表明"）退码 0，行为回到 V10.3 状态
+- `trigger_watcher.sh` fail-closed：无 step3-article.md 的 mock trigger 状态为 `rejected_missing_article` 且未发布
+- `openid_resolver.py` 实机验证：`lark-cli contact +get-user --as user` 返回真实 open_id work
+- `setup_cli.py` 改造后自动填充 + 20 个群列表序号选择 work
+
+---
+
 ## [V10.3] - 2026-04-22 · 引用来源规范硬门控 + 括号来源灰化 + 图内禁英文 + 配图必要性
 
 ### 背景

@@ -45,7 +45,11 @@ vim config.json
    - 订阅方式：**使用长连接接收事件/回调**
    - 订阅事件：`im.message.receive_v1`
    - 订阅回调：`card.action.trigger`
-5. 获取目标用户的 `open_id`（从飞书管理后台或通过API查询）
+5. 获取目标用户的 `open_id`：
+   ```bash
+   lark-cli contact +get-user --as user --jq '.data.user.open_id'
+   ```
+   未登录时先运行 `lark-cli auth login --as user`
 
 ### Step 2: 获取微信公众号凭据
 

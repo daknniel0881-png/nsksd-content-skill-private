@@ -1,0 +1,60 @@
+{
+  "_comment": "step3-facts.json 标注示例。展示 verified / pending / failed 三种状态及「无知许可」写法。",
+  "facts": [
+    {
+      "placeholder_id": "P001",
+      "original_placeholder": "[待填充:浙大 RCT 追踪人数]",
+      "claim": "1062 人",
+      "source_name": "浙江大学公共卫生学院 / Journal of Cardiovascular Risk, 2023",
+      "source_url": "https://doi.org/10.1177/1741826723xxxxxx",
+      "source_type": "学术期刊",
+      "verification_status": "verified",
+      "confidence": 0.95,
+      "note": "白名单来源命中，HTTP 200，交叉印证：中国心血管病报告 2024 P88 同数据"
+    },
+    {
+      "placeholder_id": "P002",
+      "original_placeholder": "[待填充:EFSA 纳豆激酶安全评估年份]",
+      "claim": "2017 年",
+      "source_name": "EFSA / EFSA Journal 2017;15(1):4678",
+      "source_url": "https://www.efsa.europa.eu/en/efsajournal/pub/4678",
+      "source_type": "官方机构报告",
+      "verification_status": "verified",
+      "confidence": 0.98,
+      "note": "一级权威来源，HTTP 200，国家卫健委《保健食品原料目录》引用同结论"
+    },
+    {
+      "placeholder_id": "P003",
+      "original_placeholder": "[待填充:颈动脉内膜中层厚度平均下降数值]",
+      "claim": "0.22mm",
+      "source_name": "日生研 2024 年内部追踪数据（样本 N=312）",
+      "source_url": null,
+      "source_type": "内部数据",
+      "verification_status": "pending",
+      "confidence": 0.70,
+      "note": "来源为内部追踪，无公开 URL。正文已降级写法：「根据日生研 2024 年内部追踪数据（样本 N=312）」。建议客户提供第三方检测报告后升级为 verified"
+    },
+    {
+      "placeholder_id": "P004",
+      "original_placeholder": "[待填充:心脑血管事件 5 年降低比例]",
+      "claim": null,
+      "source_name": null,
+      "source_url": null,
+      "source_type": null,
+      "verification_status": "failed",
+      "confidence": 0,
+      "note": "三级查证（白名单 → 本地 KB → WebSearch）均未找到可验证来源。正文已将该句改写为「该数据尚待核实，暂不披露」，原论述段落保留定性描述"
+    },
+    {
+      "placeholder_id": "P005",
+      "original_placeholder": "[待填充:纳豆激酶推荐每日剂量 FU 数]",
+      "claim": "2000 FU",
+      "source_name": "中国营养学会《保健食品功效成分使用指南（2023）》",
+      "source_url": "https://www.cnsoc.org/guidelines/2023-natto-fib.html",
+      "source_type": "学会指南",
+      "verification_status": "verified",
+      "confidence": 0.92,
+      "note": "二级权威来源，HTTP 200。注意：该 URL 为示例，实际使用前须 WebFetch 验证"
+    }
+  ]
+}

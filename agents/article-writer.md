@@ -107,25 +107,103 @@ title = confirmed_item["titles_variants"][session["replies"]["2"]["confirmed_tit
 outline = confirmed_item["outline"]
 ```
 
-### 步骤 B：按大纲六段撰写（每段必须起小标题）
+### 步骤 B：Step 3a · 骨架写作（禁止填具体事实）
+
+> **铁律**：第一遍只写结构和论述骨架。所有高风险事实一律用占位符，等 Step 3b 查证后填入。宁可骨架里一个数字都没有，也不能编造一个。
+
+占位符格式：`[待填充:该处需要XXX数据/出处]`
+
+**必须占位的内容类型：**
+- 所有数字 / 百分比 / 年份 / 人数 / 剂量 / 时长 → `[待填充:该处需要XXX数据]`
+- 所有机构名 / 人名 / 论文名 / DOI / URL → `[待填充:该处需要XXX出处]`
+
+**六段骨架结构：**
 
 > **V9.9 铁律**：主干 4 段（问题 / 科学 / 产品 / 赚钱）每段起一个 `##` 二级小标题。开篇钩子不起标题（直接在 `# 文章标题` 后接正文），收尾可起也可不起。全文小标题总数 3-6 个。
 
 1. **开篇钩子**（50-80 字，**不起小标题**）：第二人称直接喊醒读者，或用具名案例切入
 2. **问题陈述**（200-300 字，**起 `##` 小标题**）：用"您的客户可能遇到过"起笔。标题示例：`## 门店最常被问的一个问题`
-3. **科学证据**（300-500 字，**起 `##` 小标题**，可拆 1-2 个 `###` 三级标题）：每条数据 = 数据 + (权威机构，URL) + 交叉来源。标题示例：`## 浙大追踪 1062 人，两年的结论`
+3. **科学证据**（300-500 字，**起 `##` 小标题**，可拆 1-2 个 `###` 三级标题）：每条数据位置写占位符，论述逻辑写清楚。标题示例：`## [待填充:研究团队名] 追踪 [待填充:受试者人数]，[待填充:追踪时长]的结论`
 4. **产品衔接**（200-300 字，**起 `##` 小标题**）："我们日生研的 NSKSD……"。标题示例：`## 为什么我们日生研敢把数字摆出来`
-5. **赚钱逻辑**（200-400 字，招商向才写，**起 `##` 小标题**）：具名案例 + 具体数字。标题示例：`## 老王的养生馆是怎么把它卖出去的`
+5. **赚钱逻辑**（200-400 字，招商向才写，**起 `##` 小标题**）：具名案例 + 数字位置用占位符。标题示例：`## 老王的养生馆是怎么把它卖出去的`
 6. **收尾**（50-100 字）：开放式问句问"您"，不催单。标题可选，例：`## 写在最后`
 
 **每一段内部**：单自然段 ≤ 100 字，超过必拆。段落之间空一行。
+
+**Step 3a 交付物**：`artifacts/<SID>/step3a-skeleton.md`
+
+---
+
+### 步骤 B2：Step 3b · 查证填充（按顺序走三级源）
+
+> 对骨架中每一个 `[待填充:...]` 占位符，依次走以下三级查证。找到即止，**绝不跳过直接编造**。
+
+**三级查证顺序：**
+
+1. **一级：白名单来源**——查 `references/whitelist-sources.md`，白名单内的机构/刊物/URL 直接使用
+2. **二级：本地知识库**——查 `knowledge/核心文档/` 及 `nsksd-knowledge/`（如目录存在）
+3. **三级：网络检索**——调 `WebSearch` 工具，限定白名单 domain：
+   ```
+   site:nhc.gov.cn OR site:cma.org.cn OR site:pubmed.ncbi.nlm.nih.gov OR site:who.int OR site:efsa.europa.eu
+   ```
+
+**查证结果处理规则：**
+
+| 查证结果 | 处理方式 |
+|----------|----------|
+| 三级内找到可验证来源 | 填入数据 + 附全角来源标注 `（来源：XXX）` |
+| 三级都找不到 | **保留占位符，将句式改写为"该数据正在核实中"**，或**整段删除该论述** |
+| 数据存在但无公开 URL | 降级写法："根据内部追踪数据（样本 N=[待填充:人数]）" |
+
+**每个占位符填充后，在 `step3-facts.json` 写一条记录（见下方结构）。**
+
+**`artifacts/<SID>/step3-facts.json` 结构：**
+
+```json
+{
+  "facts": [
+    {
+      "placeholder_id": "P001",
+      "original_placeholder": "[待填充:浙大 RCT 追踪人数]",
+      "claim": "1062 人",
+      "source_name": "浙江大学公共卫生学院 / J Cardiovasc Risk, 2023",
+      "source_url": "https://doi.org/10.xxxx",
+      "source_type": "学术期刊",
+      "verification_status": "verified",
+      "confidence": 0.95
+    },
+    {
+      "placeholder_id": "P002",
+      "original_placeholder": "[待填充:心脑血管事件降低比例]",
+      "claim": null,
+      "source_name": null,
+      "source_url": null,
+      "source_type": null,
+      "verification_status": "failed",
+      "confidence": 0,
+      "note": "三级查证均未找到可验证来源，已将该句改写为'该数据正在核实中'"
+    }
+  ]
+}
+```
+
+**`verification_status` 取值：**
+- `verified`：找到权威来源，数据可用
+- `pending`：找到疑似来源但需人工二次确认
+- `failed`：三级查证均未找到，已降级处理或删除
+
+**Step 3b 交付物：**
+- `artifacts/<SID>/step3-article.md`（填充后正文，替代原 step3 产物）
+- `artifacts/<SID>/step3-facts.json`（逐条占位符查证记录）
+
+---
 
 ### 步骤 C：五轮自查（每轮命中就改）
 
 1. **AI 味扫描**：grep 禁用词 + 对立句式
 2. **人称扫描**：grep "^我|\s我[^们日]|我测|我去|我的朋友|你会发现|说白了|本质上|大概率|真的" → 命中即改
 3. **破折号计数**：`——`/`—` 总数 ≤ 2
-4. **数据可验证性**：每个数字后面必须有 (来源：机构名，URL)，无 URL 的软引用改为定性描述或删
+4. **数据可验证性**：每个数字后面必须有 `（来源：机构名，URL）`，无 URL 的软引用改为定性描述或删；**残留的 `[待填充:...]` 占位符视为未完成，不得发布**
 5. **段落+小标题扫描（V9.9 新增）**：
    - `grep -c "^## "` 文章.md → 必须 3-6 个
    - Python 脚本逐段统计字数，任何自然段 > 100 字 → 拆成两段
@@ -145,7 +223,9 @@ outline = confirmed_item["outline"]
 ### 步骤 F：落盘
 
 ```
-artifacts/<SID>/step3-article.md
+artifacts/<SID>/step3a-skeleton.md   ← Step 3a 骨架（含占位符）
+artifacts/<SID>/step3-article.md     ← Step 3b 填充后正文（最终发布稿）
+artifacts/<SID>/step3-facts.json     ← 逐条占位符查证记录
 ```
 
 Frontmatter（v9.3 扩展，**sources_checked 字段必填，没填算不合格**）：
@@ -208,9 +288,14 @@ written_at: "ISO8601"
 ## 输出给主 Agent 的总结
 
 ```
-artifact: artifacts/<SID>/step3-article.md
-word_count: N
-ai_words_hit: 0
+skeleton:        artifacts/<SID>/step3a-skeleton.md
+artifact:        artifacts/<SID>/step3-article.md
+facts_log:       artifacts/<SID>/step3-facts.json
+word_count:      N
+placeholders_total:   M
+placeholders_verified: V/M
+placeholders_failed:  F/M  (已降级处理或删除)
+ai_words_hit:    0
 first_person_hit: 0
 quyu_signature_hit: 0
 sources_verified: M/M (all 200 OK)

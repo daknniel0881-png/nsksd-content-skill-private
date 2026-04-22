@@ -60,32 +60,91 @@ python3 scripts/guard.py check --sid <SID> --step 4
 
 **尺寸违规硬门控**：生成前必须在提示词里显式写尺寸，生成后用 `scripts/image_size_check.py` 校验；不符退回重生成，不能发布。
 
-## 🆕 V10.1 图内文字硬规范（必读，硬门控）
+## 🆕 V10.3 图内文字硬规范（必读，硬门控，收紧版）
 
-**总原则：图内文字一律中文优先。**
+**总原则：图内文字一律中文优先。V10.3 起默认"纯中文"，英文白名单极窄。**
 
 | 文字类型 | 要求 |
 |----------|------|
-| 标题 | **必须中文** |
-| 副标题 | **必须中文** |
-| 标签/说明文字 | **必须中文** |
-| 数字/单位 | 数字保留阿拉伯数字，单位用中文（如"1062 人"、"66.5% 改善率"）|
-| 专业名词 | **先中文，英文加括号注释**（如"纳豆激酶（Nattokinase）"、"FU（Fibrin-degrading Unit）"）|
-| 品牌词 | 保留原样（NSKSD、日生研）|
+| 标题 | **必须中文，禁止任何英文** |
+| 副标题 | **必须中文，禁止任何英文** |
+| 标签/说明文字 | **必须中文，禁止任何英文** |
+| 数字/单位 | 数字保留阿拉伯数字，单位用中文（"1062 人"、"66.5%"、"8000 FU" 的 FU 是单位保留例外）|
+| 专业名词 | **只写中文**，不加英文括号注释（图面寸土寸金，括号英文会挤爆布局）|
+| 品牌词 | **仅** `NSKSD` 和 `日生研` 两个保留；其他英文（Nattokinase/RCT/AHA 等）必须翻译成中文 |
 
-**禁止**：
-- ❌ 图里只有英文没中文
-- ❌ 把中文翻译成英文显示
-- ❌ 中英文混排但英文占主导
+**V10.3 禁止清单（收紧）**：
+- ❌ 图里出现任何非白名单英文（包括 Nattokinase / Fibrin-degrading Unit / vascular / health / AHA 等）
+- ❌ 英文图表轴标签（Axis、X/Y、Time、Risk、Baseline 等 → 改中文）
+- ❌ 英文缩写作为主要展示词（RCT、PMID、DOI、BMI → 全部改中文释义或去掉）
+- ❌ 中文机翻味的英文混排（"血栓 Risk 降低" 这种）
+- ❌ 装饰性英文（"HEALTH" / "SCIENCE" 这种无意义英文大字）
 
-**提示词必带句式**：
+**白名单（唯一合法的英文）**：
+- `NSKSD`（品牌名）
+- `FU`（单位，纳豆激酶行业专用，无中文替代）
+
+其他一律翻译。举例：
+- `Nattokinase` → `纳豆激酶`
+- `Cardiovascular Health` → `心血管健康`
+- `Expert Consensus 2024` → `专家共识 2024`
+- `Clinical Trial` → `临床试验`
+- `Before / After` → `服用前 / 服用后`
+
+**提示词必带句式（V10.3 版）**：
 ```
-All text in the image MUST be in Simplified Chinese.
-English is only allowed for:
-- Brand names (NSKSD, Nattokinase, etc.)
-- Scientific units in parentheses after Chinese (e.g., "纤溶单位 (FU)")
-Everything else — titles, subtitles, labels, descriptions — must be rendered in clear Simplified Chinese characters.
+TEXT RULES (STRICT, v10.3):
+- All text in the image MUST be in Simplified Chinese only.
+- The ONLY two English tokens allowed: "NSKSD" (brand) and "FU" (unit).
+- Do NOT include any other English word or abbreviation anywhere on the canvas.
+- Translate everything else into Chinese — no "Nattokinase", no "RCT", no "BMI", no "Before/After", no chart axis labels in English.
+- No decorative English headlines like "HEALTH" or "SCIENCE".
 ```
+
+## 🆕 V10.3 配图必要性原则（必读，治"段段配图"）
+
+**核心判断：这张图是不是"没它读者就理解不了"？是 → 配；否 → 不配。**
+
+配图是**信息补充工具**，不是装饰、不是节奏填充、不是仪式感。读者能靠文字读懂的段落就不该有图——过度配图会稀释真正重要的那张图。
+
+### 必配图的 7 种场景（只有这些场景该出现内文图）
+
+| 场景 | 示例 | 图类型 |
+|------|------|--------|
+| **1. 概念示意** | 血管阻塞 vs 畅通 / 斑块形成过程 | 示意图、对比图 |
+| **2. 数据可视化** | 1062 人 RCT 中 66.5% 改善率 / 剂量-效果曲线 | 柱状图、折线图、饼图 |
+| **3. 机制拆解** | 纳豆激酶溶栓四步路径 | 流程图、分子示意 |
+| **4. 对比/反差** | 服用前/服用后 / 传统 vs NSKSD / 竞品对比 | 左右双栏、Before-After |
+| **5. 结构/层级** | 蓝皮书编委结构 / 产品认证矩阵 | 组织图、矩阵图 |
+| **6. 时间线/演进** | 日生研 1998-2026 历史 / 研究进展 | 时间线 |
+| **7. 行动引导** | 扫码加微信 / 客服二维码 | 二维码卡片 |
+
+### 禁配图的 4 种场景（不要为了"好看"凑图）
+
+- ❌ **纯观点/判断段**：作者表态、议论、反问——靠文字即可，配图反而削弱冲击
+- ❌ **过渡段/钩子段**：开头的场景带入、段落间的衔接句
+- ❌ **列表清单**：3-5 条 bullet point 已经视觉化了，不需要再套一张图
+- ❌ **单纯的"强调"需求**：想让某段"醒目"时改用加粗/小标题/引文块，不用图
+
+### 密度铁律（V10.3 覆盖 V10.1）
+
+| 文章字数 | 内文图数量 | 分布策略 |
+|---------|------------|---------|
+| ≤ 1500 字 | **3 张**（硬下限）| 每 400-500 字 1 张，绑在数据/机制/对比段 |
+| 1500-2000 字 | 4-5 张（标配）| 主章节各 1 张 |
+| > 2000 字 | 6-8 张（上限）| 数据段允许 2 张，其他章节各 1 张 |
+
+**硬约束**：每张图必须在 `meta.json.figures[].reason` 字段说明"为什么这段需要图"（对应上面 7 种场景之一），否则 image_size_check 退回。
+
+### 与文章内容的衔接义务（V10.3 新增）
+
+图不是孤立产出，它要对文章**做衍生解释**——即：图里的信息量 ≥ 对应段落的文字信息量，至少不能只是"把文字原样画一遍"。
+
+举例：
+- ❌ 段落讲"日推荐 4000-8000 FU"，配图只写"4000-8000 FU" → 零信息增量
+- ✅ 配图画一个"剂量阶梯图"：2000 FU 基础维护 / 4000 FU 常规摄入 / 8000 FU 高风险人群，旁边标适用人群 → 图比文字多出了"阶梯+人群"两个维度
+
+**提示词里必须指定"图要表达的具体信息点"**，不是"配一张血管健康图"这种泛泛描述。
 
 ## 配图方案
 
@@ -135,11 +194,11 @@ paper-textured off-white background (#F5F1E8),
 soft drop shadow, minimal icons, Notion + Apple Keynote aesthetic,
 no photorealism, no cartoon, professional and calm.
 
-TEXT RULES (STRICT):
-- All text in the image MUST be in Simplified Chinese.
+TEXT RULES (STRICT, v10.3):
+- All text in the image MUST be in Simplified Chinese only.
+- The ONLY two English tokens allowed anywhere on the canvas: "NSKSD" and "FU".
 - Render this title clearly and legibly: "{中文标题文字}"
-- English only allowed for: brand names (NSKSD / Nattokinase), units in parentheses after Chinese (e.g., "纤溶单位 (FU)").
-- NO English-only text. NO Japanese. NO mixed English-dominant layout.
+- NO other English word / abbreviation / decorative label. NO Japanese. Translate everything else to Chinese.
 ```
 
 #### B.2 小红书/视频封面图（1242×1660 竖版）

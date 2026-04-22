@@ -1,5 +1,50 @@
 # 更新日志
 
+## [V10.3] - 2026-04-22 · 引用来源规范硬门控 + 括号来源灰化 + 图内禁英文 + 配图必要性
+
+### 背景
+
+客户实际阅读时发现两类"AI 味"问题：
+1. **引用来源不规范**：模型喜欢在每段后面加「（来源：同上）」这种模糊回指；或者用「袁总 / 老袁 / 张老师」这种亲昵称谓代替人的原名
+2. **配图英文 + 装饰化**：生图模型（NanoBanana/GPT Image 2）对中文渲染无压力，但配图里仍然混杂英文（Nattokinase / RCT / Before-After）；且"为了美观配图"而不是"为了解释文章配图"，图没有衍生解释义务
+
+### 新增
+
+- **`scripts/citation_check.py`**：第三道发布前硬门控，扫三项
+  - `honorifics`：括号来源 / 作者行里的亲昵称谓（袁总 / 老袁 / 张老师）
+  - `vague_backref`：「来源：同上 / 同前 / 见上 / 同 N」模糊回指
+  - `half_width_source`：半角括号 `(来源: xxx)`（破坏 format.py 自动灰化钩子）
+  - 退码 0=通过 / 1=违规 / 2=文件错
+- **`docs/playbooks/citation-source-naming.md`**：引用来源命名完整 playbook
+  - 核心三规则（人原名 + 具体出处 + 全角括号）
+  - format.py 自动灰化原理 + 客户看到的渲染效果
+  - citation_check 扫描表 + 误伤 FAQ + 红线
+
+### 修改
+
+- **`scripts/format/format.py::gray_out_source_citations`**（新函数）：
+  - 匹配 `（来源：XXX）`/`（出处：XXX）`/`（引自：XXX）`/`（参考：XXX）` 全角括号
+  - 自动包 `<span style="color:#9aa0a6;font-size:0.92em">...</span>`
+  - 在 `convert_image_captions` 末尾调用，4 个发布通道自动受益
+- **`scripts/interactive/trigger_watcher.sh` Step 4.5**：
+  - 三门控变四门控：layout → data_audit → **citation_check（新）** → image_size_check
+  - 违规状态码 `rejected_citation_check`
+- **`agents/image-designer.md`**：
+  - 图内英文白名单收紧到仅 `NSKSD` + `FU`，其他所有英文必须翻中文（Nattokinase→纳豆激酶，RCT→临床试验，Before/After→服用前/服用后）
+  - 新增「配图必要性原则」：7 必配场景（概念示意 / 数据可视化 / 机制拆解 / 对比反差 / 结构层级 / 时间线 / 行动引导）vs 4 禁配场景（纯观点 / 过渡 / 列表 / 强调）
+  - 新增「衍生解释义务」：图信息量 ≥ 文字信息量，`meta.json.figures[].reason` 必填
+- **`references/nsksd-writing-style.md`**：新增第 8B 节「引用来源规范」三条规则表 + automation 指引
+- **`SKILL.md`** frontmatter：V10.2 → V10.3
+
+### 验证
+
+- `citation_check.py` 单测：`/tmp/test_article.md` 精准捕获 3/3 违规（袁总采访 / 来源：同上 / —— 袁总）
+- `gray_out_source_citations` 单测：3/3 HTML case 正确包 gray span
+- 正文里「张伟东老师讲过」不误伤（只扫括号来源 + 作者行）
+- 「老中医」「工程师」等不误伤（HONORIFIC_SUFFIX 移除单字"师"）
+
+---
+
 ## [V10.2] - 2026-04-22 · 公众号图片不裂 + 飞书云文档客户可读
 
 ### 背景

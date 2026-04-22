@@ -1519,7 +1519,29 @@ def convert_image_captions(html: str) -> str:
         rf'\1<p style="{caption_style}">\2</p>',
         html
     )
+    # V10.3：顺带把括号来源灰化，避免每个调用点都要加一行
+    html = gray_out_source_citations(html)
     return html
+
+
+def gray_out_source_citations(html: str) -> str:
+    """V10.3 新增：把正文里的 `（来源：XXX）` / `（出处：XXX）` / `（引自：XXX）`
+    包裹成浅灰色 span，和正文视觉拉开层级。
+
+    匹配范围：全角括号内以「来源/出处/引自/参考」开头的完整单元（非贪婪到 ）结束）。
+    不动：
+      - 半角括号（citation_check 会拦截，不存在合规产物里）
+      - Markdown 链接里的文本
+      - 图说 <em> 里的内容
+    """
+    style = "color:#9aa0a6;font-size:0.92em"
+    # 全角「（来源：...）」 — 兼容 来源/出处/引自/参考
+    pattern = re.compile(r"（\s*(?:来源|出处|引自|参考)[：:][^（）]{1,120}）")
+
+    def _repl(m: "re.Match[str]") -> str:
+        return f'<span style="{style}">{m.group(0)}</span>'
+
+    return pattern.sub(_repl, html)
 
 
 def truncate_html_preview(html: str, max_p_tags: int = 12) -> str:

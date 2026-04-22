@@ -147,7 +147,22 @@ json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
         mv "$trigger_file" "$DONE_DIR/"
         return
       fi
-      log "  ✅ 双门控通过"
+      # V10.3 引用来源规范硬门控
+      log "  → citation_check.py (V10.3)"
+      if ! python3 "$SKILL_DIR/scripts/citation_check.py" "$STEP3_MD" >> "$work_log" 2>&1; then
+        log "❌ 引用来源硬门控未通过（亲昵称谓/同上模糊回指/半角括号），退回重写，不发布"
+        python3 -c "
+import json, datetime
+p = '$trigger_file'
+d = json.load(open(p))
+d['status'] = 'rejected_citation_check'
+d['finished_at'] = datetime.datetime.now().isoformat(timespec='seconds')
+json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
+"
+        mv "$trigger_file" "$DONE_DIR/"
+        return
+      fi
+      log "  ✅ 三门控通过（排版 + 数据 + 引用）"
 
       # V10.1 第三道硬门控：图片尺寸 + 数量 + 中文优先
       local STEP4_IMG_DIR="$SKILL_DIR/artifacts/${session_id}/step4-images"

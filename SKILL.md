@@ -1,11 +1,21 @@
 ---
 name: nsksd-content
-description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.8）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.8 **Windows 适配大修**：修 14 条客户端测试踩坑（daily-topics.ps1 缺失 / 飞书开放平台 URL 错 / send_notify 不支持 open_id / 中文消息乱码 / run_listener_win.bat 不注入凭证 / venv 路径硬编码 / 安全软件白名单 / Bash 工具路径坑）；新增 scripts\daily-topics.ps1 Windows 定时入口；新增 scripts\setup_cli.ps1 Windows 交互配置包装；重写 run_listener_win.bat 自动注入凭证 + 校验 venv + 自动装 lark-oapi；新增 docs\playbooks\windows-troubleshooting.md 整本排障说明书。V9.7 **标题选题方法论大融合**：45 爆款公式（DBS 30 + 全网 5 + 本地 10）、八维坐标系 M1-M8（+招商 +名人古法）、三层代码去重硬线化（M7 ≤1/日 / M6+M7 ≤2/日 / C 端 ≥6/10）、反门店同质化 25 冷冻词、C 端 70% + B 端 30% 硬比例、医广红线三库双扫、反面示例黑名单 4 类。V9.6 **Guided 引导反馈卡 E2E 打通**。V9.5 飞书云文档+公众号草稿**双推铁律**。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护。V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
+description: 日生研NSKSD纳豆激酶自媒体内容工厂Skill（V9.9）。当用户提到日生研、NSKSD、纳豆激酶的公众号选题、文章撰写、内容创作、招商文案、标题优化、大会宣传时，必须使用此Skill。V9.9 **文章排版硬约束**：段落 ≤ 100 字 + 每篇 3-6 个 `##` 二级小标题 + `layout_check.py` 脚本做发布前硬门控；解决客户端吐槽"大段文字无小标题可读性差"问题。V9.8 **Windows 适配大修**：修 14 条客户端测试踩坑（daily-topics.ps1 缺失 / 飞书开放平台 URL 错 / send_notify 不支持 open_id / 中文消息乱码 / run_listener_win.bat 不注入凭证 / venv 路径硬编码 / 安全软件白名单 / Bash 工具路径坑）；新增 scripts\daily-topics.ps1 Windows 定时入口；新增 scripts\setup_cli.ps1 Windows 交互配置包装；重写 run_listener_win.bat 自动注入凭证 + 校验 venv + 自动装 lark-oapi；新增 docs\playbooks\windows-troubleshooting.md 整本排障说明书。V9.7 **标题选题方法论大融合**：45 爆款公式（DBS 30 + 全网 5 + 本地 10）、八维坐标系 M1-M8（+招商 +名人古法）、三层代码去重硬线化（M7 ≤1/日 / M6+M7 ≤2/日 / C 端 ≥6/10）、反门店同质化 25 冷冻词、C 端 70% + B 端 30% 硬比例、医广红线三库双扫、反面示例黑名单 4 类。V9.6 **Guided 引导反馈卡 E2E 打通**。V9.5 飞书云文档+公众号草稿**双推铁律**。V9.4 彻底与 wechat-autopublish 解耦，独立 10 主题排版 + nsksd-writing-style 写作规则 + docs/playbooks 做事说明书矩阵 + CLI 引导配置凭证（零硬编码）+ 飞书云文档保底。V9.1 新增 bun+飞书CLI 自动安装授权、飞书多选卡片乱码防护。V9.0 选题六维坐标系+三层去重+标题手册+爆款语料库+路由表；v8.4 日本表述弱化；v8.3 单入口 `/nsksd` + 模式持久化、每日 10 点定时推、5 子 Agent 串行、guard.py 硬门控、飞书长连接回调。
 ---
 
-# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.8）
+# 日生研NSKSD纳豆激酶 · 自媒体内容工厂（V9.9）
 
-## V9.8 核心升级（本版 · 2026-04-22 · Windows 适配大修）
+## V9.9 核心升级（本版 · 2026-04-22 · 文章排版硬约束）
+
+客户反馈："现在写出来的文章，大段大段文字，缺小标题，可读性差。"根因是 V9.4 的写作规范明确写了"不用 # 标题堆砌结构"，把小标题这条路堵死了。V9.9 把规则反过来：
+
+1. **段落字数硬上限 100 字**（V9.9 新增）：写进 `nsksd-writing-style.md` / `science-popular-style.md` / `article-writer.md` 三处写作规范。两句一段是常态，长段必拆
+2. **每篇必须有 3-6 个 `##` 二级小标题**：主干 4 段（问题 / 科学 / 产品 / 赚钱）每段起一个小标题当路标。小标题写成完整观点句，不写"背景/方法/结论"式目录词
+3. **新增 `scripts/layout_check.py` 脚本**：发布前硬门控，自动统计二级小标题数 + 逐段字数 + 目录词扫描，命中退码非 0 阻止流水线
+4. **`article-writer.md` 自查清单扩展**：从"三轮自查"升级为"五轮自查"，新增第 5 轮"段落+小标题扫描"硬条目
+5. **`step3-article.md` frontmatter 扩字段**：`subheading_count` / `max_paragraph_chars` / `paragraph_overflow_count` 三项进入 style_check，没填算不合格
+
+## V9.8 核心升级（2026-04-22 · Windows 适配大修）
 
 基于客户端 Windows 11 一整晚实测（`nska-windows-test-report.md`）反馈的 14 条问题系统性修复：
 

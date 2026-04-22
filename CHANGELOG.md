@@ -1,5 +1,39 @@
 # 更新日志
 
+## [V9.9] - 2026-04-22 · 文章排版硬约束
+
+### 背景
+
+客户端反馈："现在写出来的文章，一大段大段文字，段落应该有适当分段，中间也缺很多小标题。写公众号文章应该有小标题，写到飞书云文档里也应该有小标题分区分块，它应该是完整文章结构，可读性好。"
+
+根因：V9.4 版 `nsksd-writing-style.md` 第 4 节明确写了"用 ---- 或空行切换段落，不用 # 标题堆砌结构"，把小标题路径堵死；段落上限也只写了"≤ 5 行"没限字数。
+
+### 新增
+
+- **`scripts/layout_check.py`**：文章排版自查脚本，硬门控 `##` 小标题 3-6 个 + 段落字数 ≤ 100 + 目录词黑名单，退码非 0 阻塞发布
+
+### 修改
+
+- **`references/nsksd-writing-style.md` 第 4 节**：改为"段落不超过 100 字 + 必须有 3-6 个 `##` 二级小标题"，给出好/坏小标题示例
+- **`references/science-popular-style.md` 第二节**：新增"段落与小标题"硬约束段
+- **`agents/article-writer.md`**：
+  - "写作硬约束"新增段落字数 + 小标题铁律
+  - "步骤 B 六段撰写"每段注明是否起 `##` 小标题，附示例
+  - "自查"从三轮升级为五轮，新增第 5 轮"段落+小标题扫描"
+  - frontmatter 扩 `subheading_count` / `max_paragraph_chars` / `paragraph_overflow_count` 三字段
+
+### 验收
+
+```bash
+# 坏样本：145 字段落 + 0 小标题 → 退码 1
+python3 scripts/layout_check.py /tmp/bad_article.md
+
+# 好样本：34 字段落 + 3 小标题 → 退码 0
+python3 scripts/layout_check.py /tmp/good_article.md
+```
+
+---
+
 ## [V9.8] - 2026-04-22 · Windows 适配大修
 
 ### 新增

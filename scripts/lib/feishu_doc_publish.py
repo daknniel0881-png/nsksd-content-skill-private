@@ -62,20 +62,20 @@ class PublishNotification:
         return "\n".join(lines)
 
 
-def create_fallback_doc(title: str, html_or_md: str) -> Optional[str]:
+def create_fallback_doc(title: str, html_or_md: str) -> tuple[Optional[str], Optional[str]]:
     """创建飞书云文档作为保底。
 
-    实现：调 `lark-cli docs +create --title X --markdown @file --as bot`，
-    用 jq 提取 url。CLI 未装/失败/超时 → 返回 None，上游继续推红卡（只是没 doc_url）。
+    返回 `(doc_url, doc_token)`，失败返回 `(None, None)`。
 
-    注：lark-cli 真实子命令是 `+create`（带加号），参数是 `--markdown @file`。
+    V10.2：同时返回 doc_token，方便下一步调 `share_doc_to_customer` 授权。
+
+    坑：`lark-cli docs +create --as bot` 自动把当前 CLI 用户设为 full_access，
+    但**其他人读不到**，必须另调 permission.members.create 把客户加协作者。
     """
     cli = _lark_cli()
     if not cli:
-        return None
+        return None, None
     try:
-        # lark-cli 1.0.14+ 要求 --markdown @file 是相对路径，不能用绝对路径
-        # 解法：在临时目录里创建文件，cwd 设为该目录，用相对名
         tmp_dir = tempfile.mkdtemp(prefix="nsksd-fallback-")
         rel_name = "article.md"
         abs_path = Path(tmp_dir) / rel_name
@@ -85,8 +85,7 @@ def create_fallback_doc(title: str, html_or_md: str) -> Optional[str]:
                 [cli, "docs", "+create",
                  "--title", title,
                  "--markdown", f"@{rel_name}",
-                 "--as", "bot",
-                 "-q", ".data.doc_url // .data.url // .url // empty"],
+                 "--as", "bot"],
                 capture_output=True, text=True, timeout=30,
                 cwd=tmp_dir,
             )
@@ -97,20 +96,71 @@ def create_fallback_doc(title: str, html_or_md: str) -> Optional[str]:
             except OSError:
                 pass
         if result.returncode != 0:
-            return None
-        out = result.stdout.strip().strip('"')
-        if out.startswith("http"):
-            return out
-        # 兜底：jq 没命中就 raw 解析
+            return None, None
         try:
-            data = json.loads(result.stdout)
-            return (data.get("url")
-                    or data.get("data", {}).get("doc_url")
-                    or data.get("data", {}).get("url"))
+            payload = json.loads(result.stdout)
         except json.JSONDecodeError:
-            return None
+            return None, None
+        data = payload.get("data", {}) if isinstance(payload, dict) else {}
+        doc_url = data.get("doc_url") or data.get("url")
+        doc_token = data.get("doc_id") or data.get("token")
+        return doc_url, doc_token
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return None
+        return None, None
+
+
+def share_doc_to_customer(doc_token: str,
+                          member_ids: list,
+                          perm: str = "edit") -> dict:
+    """把飞书云文档授权给一组协作者（客户群 / 客户 open_id / 曲率 admin）。
+
+    V10.2 新增：解决"bot 创建的文档只有 bot 能读"。
+
+    Args:
+        doc_token: create_fallback_doc 返回的 doc_id
+        member_ids: [(member_type, member_id)] 列表
+            member_type: "openid" / "chatid" / "userid" / "email" / "unionid"
+            chatid = 飞书群（oc_ 开头），群内所有人都能读
+            openid = 单个用户（ou_ 开头）
+        perm: "view" | "edit" | "full_access"
+
+    Returns:
+        {"granted": [...], "failed": [...]}
+    """
+    cli = _lark_cli()
+    if not cli:
+        return {"granted": [], "failed": [{"reason": "lark-cli not installed"}]}
+
+    granted, failed = [], []
+    params_json = json.dumps({"token": doc_token, "type": "docx"}, ensure_ascii=False)
+
+    for member_type, member_id in member_ids:
+        if not member_id or str(member_id).startswith("REPLACE_ME"):
+            failed.append({"member_type": member_type, "member_id": member_id,
+                           "reason": "member_id 未配置"})
+            continue
+        data_json = json.dumps({
+            "member_type": member_type,
+            "member_id": member_id,
+            "perm": perm,
+        }, ensure_ascii=False)
+        try:
+            result = subprocess.run(
+                [cli, "drive", "permission.members", "create",
+                 "--params", params_json,
+                 "--data", data_json,
+                 "--as", "bot"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                granted.append({"member_type": member_type, "member_id": member_id, "perm": perm})
+            else:
+                failed.append({"member_type": member_type, "member_id": member_id,
+                               "stderr": result.stderr.strip()[:300]})
+        except (subprocess.TimeoutExpired, OSError) as e:
+            failed.append({"member_type": member_type, "member_id": member_id,
+                           "reason": str(e)})
+    return {"granted": granted, "failed": failed}
 
 
 def _send_card(open_id: str, is_chat: bool, text: str) -> bool:

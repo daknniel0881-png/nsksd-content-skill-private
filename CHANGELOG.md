@@ -1,5 +1,51 @@
 # 更新日志
 
+## [V10.2] - 2026-04-22 · 公众号图片不裂 + 飞书云文档客户可读
+
+### 背景
+
+客户实际使用暴露两个严重问题：
+1. **公众号草稿箱图片全部裂开**：本地相对路径直接塞进 `content`，微信服务器访问不到本地文件
+2. **飞书云文档只有 bot 能读**：`lark-cli docs +create --as bot` 把文档 full_access 分给 CLI 用户（曲率自己），客户打开是 403
+
+### 新增
+
+- **`docs/playbooks/wechat-image-handling.md`**：公众号图片推送完整调用链
+  - access_token → 封面上传（add_material）→ 内文图上传（uploadimg）→ content 替换 → draft/add
+  - 每步的 HTTP method / Content-Type / 关键参数速查表
+  - 6 条调试清单（裂图时照着走）
+- **`docs/playbooks/feishu-doc-permissions.md`**：飞书云文档权限授权完整路径
+  - 创建文档 → `drive permission.members create` 分发权限
+  - member_type 前缀对照表（ou_ / oc_ / on_）
+  - chat_id / open_id 获取办法
+  - perm 字段取值与 perm_type 说明
+
+### 修改
+
+- **`scripts/lib/wechat_publish_core.py::replace_all_images`**：
+  - 支持双引号/单引号/无引号三种 `src=` 写法（原只处理双引号）
+  - 自动去 `./` 前缀
+  - 上传失败场景打 `[wechat-img] FAIL` stderr 日志，方便定位
+  - `data:` URI 显式跳过（原会误判为本地路径）
+- **`scripts/lib/feishu_doc_publish.py`**：
+  - `create_fallback_doc()` 改返回 `(doc_url, doc_token)` 元组
+  - 新增 `share_doc_to_customer(doc_token, members, perm)`，调 `drive permission.members create`
+- **`scripts/nsksd_publish.py`**：
+  - 创建文档后自动授权：客户群（chatid）+ 曲率 admin（openid）→ edit 权限
+  - 通过 config 的 `customer_open_chat_id` 和 `target_open_id` 自动判断 member_type
+- **`SKILL.md`** frontmatter：V10.1 → V10.2
+
+### 验证
+
+`replace_all_images` 单测 5 个场景全过：
+- 双引号 + `./` 前缀 → 替换成 mmbiz CDN
+- 单引号 → 保持单引号格式
+- 无引号 → 补双引号
+- 已是 mmbiz URL → 跳过
+- 本地找不到 → 保持原样 + stderr 日志
+
+---
+
 ## [V10.1] - 2026-04-22 · 图片规则硬门控（尺寸 + 数量 + 中文优先）
 
 ### 背景

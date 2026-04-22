@@ -142,17 +142,36 @@ def download_external_image(url: str) -> Optional[str]:
 
 
 def replace_all_images(html: str, article_dir: Path, token: str) -> Tuple[str, int, int]:
+    """把 <img src="..."> 的本地路径 / 外网 URL 统一换成 mmbiz.qpic.cn CDN URL。
+
+    V10.2 修复：
+      1. 支持 双引号 / 单引号 / 无引号 三种 src 写法
+      2. 自动去掉 ./ 前缀
+      3. 上传失败打 stderr 日志，方便定位"草稿箱图片裂开"
+
+    微信铁律：content 里的 <img src> 必须是 mmbiz.qpic.cn 域名（uploadimg 返回），
+    本地路径或外网 URL 原样塞进去 → 草稿箱 100% 裂图。
+    """
+    import sys as _sys
+
     image_dir = article_dir / "images"
     replaced = 0
     failed = 0
+    failures: list[str] = []
 
-    def _repl(match):
+    def _handle_src(src: str) -> Optional[str]:
         nonlocal replaced, failed
-        src = match.group(1)
-        if "mmbiz.qpic.cn" in src:
-            return match.group(0)
-        if src.startswith(("http://", "https://")):
-            local = download_external_image(src)
+        s = src.strip()
+        if s.startswith("./"):
+            s = s[2:]
+        if "mmbiz.qpic.cn" in s:
+            return None
+        if s.startswith("data:"):
+            failed += 1
+            failures.append(f"data: URI 不支持：{s[:40]}...")
+            return None
+        if s.startswith(("http://", "https://")):
+            local = download_external_image(s)
             if local:
                 cdn = upload_content_image(token, local)
                 try:
@@ -161,21 +180,41 @@ def replace_all_images(html: str, article_dir: Path, token: str) -> Tuple[str, i
                     pass
                 if cdn:
                     replaced += 1
-                    return f'src="{cdn}"'
+                    return cdn
             failed += 1
-            return match.group(0)
-        local_path = article_dir / src
-        if not local_path.exists() and image_dir.exists():
-            local_path = image_dir / os.path.basename(src)
-        if local_path.exists():
-            cdn = upload_content_image(token, str(local_path))
-            if cdn:
-                replaced += 1
-                return f'src="{cdn}"'
+            failures.append(f"外网图下载/上传失败：{s}")
+            return None
+        # 本地相对路径
+        for candidate in (article_dir / s,
+                          image_dir / os.path.basename(s) if image_dir.exists() else None):
+            if candidate and candidate.exists() and candidate.is_file():
+                cdn = upload_content_image(token, str(candidate))
+                if cdn:
+                    replaced += 1
+                    return cdn
         failed += 1
-        return match.group(0)
+        failures.append(f"本地图片找不到：src={src} article_dir={article_dir}")
+        return None
 
-    html = re.sub(r'src="([^"]+)"', _repl, html)
+    def _repl_double(m):
+        new = _handle_src(m.group(1))
+        return f'src="{new}"' if new else m.group(0)
+
+    def _repl_single(m):
+        new = _handle_src(m.group(1))
+        return f"src='{new}'" if new else m.group(0)
+
+    def _repl_bare(m):
+        new = _handle_src(m.group(1))
+        return f'src="{new}"' if new else m.group(0)
+
+    html = re.sub(r'src="([^"]+)"', _repl_double, html)
+    html = re.sub(r"src='([^']+)'", _repl_single, html)
+    html = re.sub(r'src=([^\s"\'>]+)', _repl_bare, html)
+
+    for f in failures:
+        print(f"[wechat-img] FAIL {f}", file=_sys.stderr)
+
     return html, replaced, failed
 
 

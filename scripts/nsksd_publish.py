@@ -35,7 +35,9 @@ from lib.feishu_doc_publish import (
     build_success_notification,
     create_fallback_doc,
     notify_dual,
+    share_doc_to_customer,
 )
+from lib.credentials import get_admin_open_id, get_target_open_id, load_config
 from lib.wechat_publish_core import (
     WeChatPublishError,
     extract_title_from_html,
@@ -99,9 +101,28 @@ def main() -> int:
         return 2
 
     # ── V9.5 · 铁律：飞书云文档无条件先推一份（保底+审阅+归档）
-    doc_url = create_fallback_doc(title, html)
+    doc_url, doc_token = create_fallback_doc(title, html)
     if doc_url:
         print(f"[OK] 飞书云文档已创建：{doc_url}")
+        # V10.2：创建后立刻把权限分给客户群 + 曲率 admin
+        # 否则只有 bot 能读，客户打开是 403
+        if doc_token:
+            cfg = load_config()
+            members: list[tuple[str, str]] = []
+            customer_chat = args.customer_chat_id or get_target_open_id(cfg)
+            if customer_chat and customer_chat.startswith("oc_"):
+                members.append(("chatid", customer_chat))
+            elif customer_chat and customer_chat.startswith("ou_"):
+                members.append(("openid", customer_chat))
+            admin_open = args.admin_open_id or get_admin_open_id(cfg)
+            if admin_open and admin_open.startswith("ou_"):
+                members.append(("openid", admin_open))
+            if members:
+                share_result = share_doc_to_customer(doc_token, members, perm="edit")
+                print(f"[OK] 飞书文档权限分发 granted={len(share_result['granted'])} "
+                      f"failed={len(share_result['failed'])}")
+                if share_result["failed"]:
+                    print(f"[WARN] 失败详情：{share_result['failed']}")
     else:
         print("[WARN] 飞书云文档创建失败（lark-cli 未装或超时），继续尝试公众号")
 
